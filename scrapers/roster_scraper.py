@@ -13,8 +13,9 @@ import os
 import re
 import sqlite3
 import time
+import unicodedata
 from datetime import date
-from difflib import get_close_matches
+from difflib import SequenceMatcher, get_close_matches
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -58,26 +59,43 @@ CURRENT_YEAR = "2026"
 # Uncertain entries are commented out — add when Leaguepedia names verified.
 # ---------------------------------------------------------------------------
 LEAGUE_MAP: Dict[str, str] = {
+    # Confirmed current T2 roster sources (Leaguepedia League name → OE label).
+    # Verified against the full 2026 Secondary tournament list on 2026-06-17.
     "North American Challengers League": "NACL",
     "LCK Challengers League": "LCKC",
     "EMEA Masters": "EM",
     "Northern League of Legends Championship": "NLC",
     "La Ligue Française": "LFL",
-    "LVP SuperLiga": "LVP SL",
+    "LVP SuperLiga": "LVP SL",                  # see note ‡ below
     "Turkish Championship League": "TCL",
     "Pacific Championship Series": "PCS",
     "Vietnam Championship Series": "VCS",
     "LoL Japan League": "LJL",
     "Liga Regional Norte": "LRN",
     "Liga Regional Sur": "LRS",
-    # Needs investigation — Leaguepedia name unknown or league discontinued:
-    # "???": "LCO",      # Oceania league (may be renamed/defunct)
-    # "???": "ESLOL",    # Italian league
-    # "???": "LEC",      # OE umbrella label (origin unclear)
-    # "???": "LTA N",    # Latin America North (post-2025 rebrand of LLA)
-    # "???": "LTA S",    # Latin America South
-    # "???": "CBLOL Academy",
+    "The Oceanic Resurrection": "LCO",          # OCE successor to the LCO; sole current OCE source
 }
+
+# OE labels deliberately NOT mapped to a roster source.
+# These appear in the matches table (so teams still earn pro-ELO from them), but
+# have no current *Secondary*-level Leaguepedia tournament to pull live rosters
+# from — confirmed absent from the full 2026 Secondary tournament list:
+#   LEC    → T1 EMEA league (Primary level); its T2 feeders are EM / LFL / NLC / LVP SL.
+#   LTA N  → T1 (2025 Americas rebrand, Primary); T2 feeder is LRN (mapped).
+#   LTA S  → T1 (2025 Americas rebrand, Primary); T2 feeder is LRS (mapped).
+#   LLA    → former top LATAM league, folded into LTA South (now T1); no Secondary split.
+#   ESLOL  → Italian league; no 2026 tournament on Leaguepedia (defunct/renamed).
+# Teams in these leagues get pro-ELO but no soloq-blended roster; the alpha blend
+# (alpha = games/(games+10)) handles that via pro-ELO fallback.
+#
+# ‡ LVP SL: the map key is correct and DOES match — this is NOT a scraper bug.
+#   As of 2026-06-17 Leaguepedia has no 2026 main split for LVP SuperLiga: its
+#   latest real competitive split is "SL 2025 Summer Split" (2025-07), and the only
+#   2026-labelled event is "SL 2026 Promotion" — a qualifier (IsQualifier=1) that
+#   discover_t2_tournaments correctly skips. So there is simply no current roster to
+#   pull; LVP will populate automatically once Leaguepedia posts a 2026 split.
+#   Do NOT relax the qualifier/"promotion" filters to force it — that would leak
+#   promotion/relegation rosters into every other league.
 
 # Tournament name substrings that mark non-main-split events (case-insensitive)
 _EXCLUDE_SUBSTRINGS = [
@@ -95,8 +113,29 @@ _EXCLUDE_SUBSTRINGS = [
 # Player role strings that indicate coaching staff (not players)
 _STAFF_ROLES = {"coach", "manager", "analyst", "head coach", "assistant coach"}
 
-# Minimum fuzzy-match ratio for player name matching
-FUZZY_CUTOFF = 0.85
+# Length-aware fuzzy-match thresholds.
+# False positives cluster entirely on SHORT handles: a one-character slip like
+# 'Cid'→'Clid', 'Han'→'Khan', 'Eria'→'Keria' scores ~0.86–0.89 yet maps a T2
+# player onto a famous pro — actively corrupting the blend (which leans hardest
+# on soloq for low-pro-game T2 teams). The shorter a name, the fewer
+# distinguishing characters, so we demand more similarity as it shrinks.
+# Empirically (2026-06-17 snapshot): every wrong match was ≤5 chars, every right
+# fuzzy match was ≥6 chars. Thresholds keyed on the SHORTER normalized name:
+FUZZY_CUTOFF = 0.85  # absolute floor (also the threshold for long names ≥7 chars)
+_FUZZY_LEN_TIERS = (
+    (4, 1.00),   # ≤4 chars: must match exactly after normalization
+    (6, 0.90),   # 5–6 chars: tighter
+    # else (≥7 chars): FUZZY_CUTOFF
+)
+
+
+def _required_ratio(a: str, b: str) -> float:
+    """Minimum similarity to accept a match, scaled by the shorter name length."""
+    n = min(len(a), len(b))
+    for max_len, ratio in _FUZZY_LEN_TIERS:
+        if n <= max_len:
+            return ratio
+    return FUZZY_CUTOFF
 
 # Regex to strip wiki disambiguation: "Spawn (Trevor Kerr-Taylor)" → "Spawn"
 _PAREN_RE = re.compile(r"\s*\(.*?\)\s*$")
@@ -391,9 +430,44 @@ def load_ttp_players(conn: sqlite3.Connection) -> List[str]:
     return [row[0] for row in cursor.fetchall()]
 
 
-def fuzzy_match(name: str, candidates: List[str], cutoff: float = FUZZY_CUTOFF) -> Optional[str]:
-    matches = get_close_matches(name, candidates, n=1, cutoff=cutoff)
-    return matches[0] if matches else None
+def _norm(s: str) -> str:
+    """
+    Normalize a name for fuzzy matching: NFKD-decompose, drop combining accent
+    marks, and lowercase. Lets 'Odi11'↔'odi11' and 'Adryh'↔'Àdryh' match while
+    keeping FUZZY_CUTOFF strict (we never lower the threshold, just remove
+    case/diacritic noise before comparing).
+    """
+    s = unicodedata.normalize("NFKD", s)
+    return "".join(c for c in s if not unicodedata.combining(c)).lower()
+
+
+def fuzzy_match(
+    name: str,
+    candidates: List[str],
+    cutoff: float = FUZZY_CUTOFF,
+    norm_map: Optional[Dict[str, str]] = None,
+) -> Optional[str]:
+    """
+    Fuzzy-match `name` against `candidates`, ignoring case and accents. Matching
+    runs on normalized forms but the ORIGINAL TTP candidate string is returned.
+    `norm_map` (normalized → original) may be precomputed by the caller to avoid
+    rebuilding it for every name.
+
+    Two-stage: pull the best candidate at the absolute floor (`cutoff`), then
+    accept it only if its similarity clears the length-aware bar from
+    `_required_ratio` — so short handles must match (near-)exactly while longer
+    names keep the looser tolerance.
+    """
+    if norm_map is None:
+        norm_map = {_norm(c): c for c in candidates}
+    nname = _norm(name)
+    hits = get_close_matches(nname, list(norm_map), n=1, cutoff=cutoff)
+    if not hits:
+        return None
+    nhit = hits[0]
+    if SequenceMatcher(None, nname, nhit).ratio() >= _required_ratio(nname, nhit):
+        return norm_map[nhit]
+    return None
 
 
 def match_players(
@@ -408,8 +482,10 @@ def match_players(
     matched: List[Dict[str, Any]] = []
     unmatched: List[Dict[str, Any]] = []
 
+    # Build the normalized → original map once, not per-entry.
+    norm_map = {_norm(c): c for c in ttp_players}
     for entry in entries:
-        hit = fuzzy_match(entry["player_name"], ttp_players)
+        hit = fuzzy_match(entry["player_name"], ttp_players, norm_map=norm_map)
         if hit:
             entry = {**entry, "ttp_player": hit}
             matched.append(entry)
@@ -498,7 +574,9 @@ def main() -> None:
     logger.info(f"Saved raw snapshot → {raw_path}")
 
     # 4. Fuzzy-match against TTP players
-    conn = sqlite3.connect(DB_PATH)
+    # timeout=30: wait up to 30s for a transient lock (e.g. a DB viewer) instead
+    # of failing the whole run instantly on "database is locked".
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     try:
         ttp_players = load_ttp_players(conn)
         logger.info(f"Loaded {len(ttp_players)} TTP players for fuzzy matching (cutoff={FUZZY_CUTOFF})")
