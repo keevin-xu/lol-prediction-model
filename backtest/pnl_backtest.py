@@ -88,23 +88,22 @@ def run_pnl_backtest(
     max_kelly: float = 0.0625,
     starting_bankroll: float = 1000.0,
     league_filter: Optional[str] = None,
-    market_vig: float = 0.02,
+    market_vig: float = 0.80,
+    max_bet: float = 100.0,
+    slippage: float = 0.02,
 ) -> PnLResult:
     """
-    Walk-forward backtest with full P&L simulation.
+    Walk-forward backtest with realistic P&L simulation.
 
-    Since we don't have historical market prices, we simulate the market
-    as: market_prob = actual_base_rate + noise. In practice, we use a
-    simple model: market_prob ≈ model_prob shifted by a random offset,
-    simulating disagreement. But the cleanest approach is to assume the
-    market is "perfect" (market_prob = long-run base rate for that
-    confidence bucket) and see if our model's deviations from perfection
-    are profitable.
+    Liquidity constraints:
+    - max_bet: hard cap on bet size (Polymarket T2 markets have $200-$18K volume,
+      you can realistically deploy $50-$200 per bet without moving the line)
+    - slippage: price impact of your bet (2% = buying at 66% actually fills at 68%)
+    - Kelly fraction is computed but capped at max_bet regardless of bankroll
 
-    Simpler approach used here: for each match, the "market" price is
-    the model's own prediction dampened toward 50% by the vig factor.
-    This simulates a slightly less confident market that the model
-    tries to beat.
+    Market simulation:
+    - market_vig: how informed the market is (0.0 = knows nothing, 1.0 = perfect)
+    - market_prob = 50% * (1 - vig) + model_prob * vig
     """
     soloq = get_team_soloq_elos()
     offsets = compute_regional_offsets()
@@ -190,10 +189,14 @@ def run_pnl_backtest(
         if bet_side and bankroll > 1.0:
             fraction = kelly_fraction(model_p, entry_price, max_kelly)
             bet_amount = round(bankroll * fraction, 2)
+            bet_amount = min(bet_amount, max_bet)
 
             if bet_amount < 1.0:
                 tracker.update(blue, red, winner, league, date)
                 continue
+
+            # Slippage: your buy moves the price against you
+            entry_price = min(entry_price + slippage, 0.99)
 
             bet_won = (bet_side == "blue" and actual == 1.0) or (bet_side == "red" and actual == 0.0)
 
@@ -275,8 +278,8 @@ def print_report(r: PnLResult, min_edge: float, max_kelly: float) -> None:
     print(f"\n{'='*70}")
     print(f"  P&L BACKTEST REPORT")
     print(f"{'='*70}")
-    print(f"  Kelly cap: {max_kelly:.1%} (quarter-Kelly)  |  Min edge: {min_edge:.0%}")
-    print(f"  Starting bankroll: ${r.starting_bankroll:,.2f}")
+    print(f"  Kelly cap: {max_kelly:.1%}  |  Min edge: {min_edge:.0%}  |  Max bet: ${r.avg_bet_size:,.0f} cap")
+    print(f"  Starting bankroll: ${r.starting_bankroll:,.2f}  |  Slippage: included")
     print()
 
     print(f"  SUMMARY")
@@ -342,21 +345,59 @@ def print_report(r: PnLResult, min_edge: float, max_kelly: float) -> None:
 
 
 def run_edge_sweep(league_filter: Optional[str] = None, bankroll: float = 1000.0) -> None:
-    """Run backtests at multiple edge thresholds to find optimal."""
-    print(f"\n{'='*70}")
-    print(f"  EDGE THRESHOLD SWEEP")
-    print(f"{'='*70}")
-    print(f"  {'Min Edge':>10} {'Bets':>7} {'Win%':>7} {'ROI':>8} {'Final $':>10} {'Max DD':>8} {'Avg Bet':>9}")
-    print(f"  {'-'*65}")
+    """Run backtests at multiple edge thresholds and max bet sizes."""
+    print(f"\n{'='*75}")
+    print(f"  EDGE THRESHOLD SWEEP ($100 max bet, 2% slippage, 80% market efficiency)")
+    print(f"{'='*75}")
+    print(f"  {'Min Edge':>10} {'Bets':>7} {'Win%':>7} {'P&L':>10} {'ROI':>8} {'Final $':>10} {'Max DD%':>8} {'Avg Bet':>9}")
+    print(f"  {'-'*75}")
 
-    for edge in [0.01, 0.02, 0.03, 0.05, 0.07, 0.10, 0.15, 0.20]:
-        r = run_pnl_backtest(min_edge=edge, starting_bankroll=bankroll, league_filter=league_filter)
+    for edge in [0.01, 0.02, 0.03, 0.05, 0.07, 0.10, 0.15]:
+        r = run_pnl_backtest(min_edge=edge, starting_bankroll=bankroll,
+                             league_filter=league_filter, max_bet=100.0, slippage=0.02)
         if r.total_bets == 0:
-            print(f"  {edge:10.0%} {'0':>7}       -        -          -        -         -")
+            print(f"  {edge:10.0%} {'0':>7}       -          -        -          -        -         -")
             continue
         print(
-            f"  {edge:10.0%} {r.total_bets:7} {r.win_rate:7.1%} {r.roi:+8.1%} "
+            f"  {edge:10.0%} {r.total_bets:7} {r.win_rate:7.1%} "
+            f"${r.total_pnl:+9,.2f} {r.roi:+8.1%} "
             f"${r.final_bankroll:9,.2f} {r.max_drawdown_pct:8.1%} ${r.avg_bet_size:8,.2f}"
+        )
+
+    print(f"\n{'='*75}")
+    print(f"  MAX BET SIZE SENSITIVITY (3% min edge, 80% market efficiency)")
+    print(f"{'='*75}")
+    print(f"  {'Max Bet':>10} {'Bets':>7} {'Win%':>7} {'P&L':>10} {'ROI':>8} {'Final $':>10} {'Max DD%':>8}")
+    print(f"  {'-'*65}")
+
+    for max_b in [25, 50, 100, 200, 500]:
+        r = run_pnl_backtest(min_edge=0.03, starting_bankroll=bankroll,
+                             league_filter=league_filter, max_bet=float(max_b), slippage=0.02)
+        if r.total_bets == 0:
+            continue
+        print(
+            f"  ${max_b:>8} {r.total_bets:7} {r.win_rate:7.1%} "
+            f"${r.total_pnl:+9,.2f} {r.roi:+8.1%} "
+            f"${r.final_bankroll:9,.2f} {r.max_drawdown_pct:8.1%}"
+        )
+
+    print(f"\n{'='*75}")
+    print(f"  MARKET EFFICIENCY SENSITIVITY (3% edge, $100 max bet)")
+    print(f"{'='*75}")
+    print(f"  {'Mkt Info':>10} {'Bets':>7} {'Win%':>7} {'P&L':>10} {'ROI':>8} {'Final $':>10} {'Max DD%':>8}")
+    print(f"  {'-'*65}")
+
+    for vig in [0.50, 0.60, 0.70, 0.80, 0.85, 0.90, 0.95]:
+        r = run_pnl_backtest(min_edge=0.03, starting_bankroll=bankroll,
+                             league_filter=league_filter, max_bet=100.0,
+                             slippage=0.02, market_vig=vig)
+        if r.total_bets == 0:
+            print(f"  {vig:10.0%} {'0':>7}       -          -        -          -        -")
+            continue
+        print(
+            f"  {vig:10.0%} {r.total_bets:7} {r.win_rate:7.1%} "
+            f"${r.total_pnl:+9,.2f} {r.roi:+8.1%} "
+            f"${r.final_bankroll:9,.2f} {r.max_drawdown_pct:8.1%}"
         )
     print()
 
@@ -366,9 +407,11 @@ def main() -> None:
     parser.add_argument("--edge", type=float, default=0.03, help="Minimum edge to bet (default: 0.03)")
     parser.add_argument("--kelly", type=float, default=0.0625, help="Max Kelly fraction (default: 0.0625)")
     parser.add_argument("--bankroll", type=float, default=1000.0, help="Starting bankroll (default: 1000)")
+    parser.add_argument("--max-bet", type=float, default=100.0, help="Max bet per match in dollars (default: 100)")
+    parser.add_argument("--slippage", type=float, default=0.02, help="Price slippage per bet (default: 0.02)")
     parser.add_argument("--league", type=str, default=None, help="Filter to single league")
     parser.add_argument("--sweep", action="store_true", help="Run edge threshold sweep")
-    parser.add_argument("--vig", type=float, default=0.02, help="Simulated market vig (default: 0.02)")
+    parser.add_argument("--vig", type=float, default=0.80, help="Market efficiency 0-1 (default: 0.80)")
     args = parser.parse_args()
 
     if args.sweep:
@@ -378,7 +421,7 @@ def main() -> None:
     r = run_pnl_backtest(
         min_edge=args.edge, max_kelly=args.kelly,
         starting_bankroll=args.bankroll, league_filter=args.league,
-        market_vig=args.vig,
+        market_vig=args.vig, max_bet=args.max_bet, slippage=args.slippage,
     )
     print_report(r, args.edge, args.kelly)
 
