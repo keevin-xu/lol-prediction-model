@@ -36,6 +36,7 @@ from polymarket.paper_trader import (
     get_portfolio_summary,
     get_trade_history,
     place_bet,
+    reset_portfolio,
 )
 from polymarket.scanner import MarketOpportunity, scan
 
@@ -235,6 +236,13 @@ class LoLEdgeBot(discord.Client):
                 await interaction.followup.send(
                     f"**{icon} Settled:** {t.bet_team} → {t.status.upper()} (${pnl:+.2f})"
                 )
+
+        @self.tree.command(name="reset", description="Reset paper trading portfolio to $1,000")
+        async def cmd_reset(interaction: discord.Interaction) -> None:
+            count = reset_portfolio()
+            await interaction.response.send_message(
+                f"**Portfolio reset.** {count} trades deleted. Bankroll back to $1,000.00."
+            )
 
     # -----------------------------------------------------------------------
     # Embed builder

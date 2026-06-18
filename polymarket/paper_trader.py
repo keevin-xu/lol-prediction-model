@@ -327,3 +327,15 @@ def get_portfolio_summary() -> PortfolioSummary:
         win_rate=win_rate,
         roi=roi,
     )
+
+
+def reset_portfolio() -> int:
+    """Delete all paper trades and portfolio snapshots. Returns count deleted."""
+    conn = sqlite3.connect(DB_PATH)
+    count = conn.execute("SELECT COUNT(*) FROM paper_trades").fetchone()[0]
+    conn.execute("DELETE FROM paper_trades")
+    conn.execute("DELETE FROM paper_portfolio")
+    conn.commit()
+    conn.close()
+    logger.info(f"Portfolio reset — {count} trades deleted, bankroll back to ${STARTING_BANKROLL:,.2f}")
+    return count
