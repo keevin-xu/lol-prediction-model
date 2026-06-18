@@ -327,8 +327,23 @@ def scan(session: Optional[requests.Session] = None) -> List[MarketOpportunity]:
             except (ValueError, TypeError):
                 continue
 
+            # Skip resolved markets (one side at 100%, already settled)
+            if price_a >= 0.99 or price_b >= 0.99 or price_a <= 0.01 or price_b <= 0.01:
+                continue
+
+            # Skip per-game sub-markets — only take the series moneyline
+            q_lower = question.lower()
+            if "game 1" in q_lower or "game 2" in q_lower or "game 3" in q_lower or "game 4" in q_lower or "game 5" in q_lower:
+                continue
+            if "handicap" in q_lower or "o/u " in q_lower or "over/under" in q_lower:
+                continue
+
             spread = float(market.get("spread", 0))
             volume = float(market.get("volumeNum", 0) or market.get("volume", 0) or 0)
+
+            # Deduplicate — one opportunity per event slug
+            if any(o.slug == slug and o.db_team_a == db_a and o.db_team_b == db_b for o in opportunities):
+                continue
 
             opp = MarketOpportunity(
                 market_id=market.get("id", ""),

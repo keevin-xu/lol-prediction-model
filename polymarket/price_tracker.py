@@ -39,55 +39,40 @@ def _make_session() -> requests.Session:
 # ---------------------------------------------------------------------------
 # Market registration
 # ---------------------------------------------------------------------------
-def upsert_market(opp: MarketOpportunity) -> bool:
-    """Register or update a market. Returns True if this is a new market."""
-    now = datetime.now(timezone.utc).isoformat()
-    conn = sqlite3.connect(DB_PATH)
-    existing = conn.execute(
-        "SELECT id FROM polymarket_markets WHERE market_id = ?",
-        (opp.market_id,),
-    ).fetchone()
-
-    if existing:
-        conn.execute(
-            "UPDATE polymarket_markets SET last_seen = ? WHERE market_id = ?",
-            (now, opp.market_id),
-        )
-        conn.commit()
-        conn.close()
-        return False
-
-    conn.execute(
-        """
-        INSERT INTO polymarket_markets
-            (market_id, condition_id, slug, question, team_a, team_b,
-             db_team_a, db_team_b, token_id_a, token_id_b, url,
-             first_seen, last_seen, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
-        """,
-        (
-            opp.market_id, opp.condition_id, opp.slug, opp.question,
-            opp.team_a, opp.team_b, opp.db_team_a, opp.db_team_b,
-            opp.token_id_a, opp.token_id_b, opp.url, now, now,
-        ),
-    )
-    conn.commit()
-    conn.close()
-    logger.info(f"New market registered: {opp.db_team_a} vs {opp.db_team_b} ({opp.market_id[:8]}…)")
-    return True
-
-
-# ---------------------------------------------------------------------------
-# Price snapshots
-# ---------------------------------------------------------------------------
 def record_prices(opportunities: List[MarketOpportunity]) -> int:
-    """Record price snapshots for all opportunities. Returns count."""
+    """Register markets and record price snapshots in a single transaction."""
     now = datetime.now(timezone.utc).isoformat()
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     recorded = 0
 
     for opp in opportunities:
-        is_new = upsert_market(opp)
+        existing = conn.execute(
+            "SELECT id FROM polymarket_markets WHERE market_id = ?",
+            (opp.market_id,),
+        ).fetchone()
+
+        if existing:
+            conn.execute(
+                "UPDATE polymarket_markets SET last_seen = ? WHERE market_id = ?",
+                (now, opp.market_id),
+            )
+        else:
+            conn.execute(
+                """
+                INSERT INTO polymarket_markets
+                    (market_id, condition_id, slug, question, team_a, team_b,
+                     db_team_a, db_team_b, token_id_a, token_id_b, url,
+                     first_seen, last_seen, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+                """,
+                (
+                    opp.market_id, opp.condition_id, opp.slug, opp.question,
+                    opp.team_a, opp.team_b, opp.db_team_a, opp.db_team_b,
+                    opp.token_id_a, opp.token_id_b, opp.url, now, now,
+                ),
+            )
+            logger.info(f"New market registered: {opp.db_team_a} vs {opp.db_team_b} ({opp.market_id[:8]}…)")
+
         conn.execute(
             """
             INSERT INTO polymarket_prices
@@ -98,12 +83,6 @@ def record_prices(opportunities: List[MarketOpportunity]) -> int:
              opp.spread, opp.volume),
         )
         recorded += 1
-
-        if is_new:
-            conn.commit()
-            conn.close()
-            backfill_market_history(opp.market_id, opp.token_id_a, opp.token_id_b)
-            conn = sqlite3.connect(DB_PATH)
 
     conn.commit()
     conn.close()
@@ -146,7 +125,7 @@ def backfill_market_history(
     session: Optional[requests.Session] = None,
 ) -> int:
     session = session or _make_session()
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     inserted = 0
 
     for token_id in [token_id_a, token_id_b]:
@@ -185,7 +164,7 @@ def check_market_resolutions(
     session: Optional[requests.Session] = None,
 ) -> List[str]:
     session = session or _make_session()
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     active = conn.execute(
         "SELECT market_id, db_team_a, db_team_b FROM polymarket_markets WHERE status = 'active'"
     ).fetchall()
@@ -228,7 +207,7 @@ def check_market_resolutions(
 
         now = datetime.now(timezone.utc).isoformat()
 
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=10)
         # Get closing price: last snapshot before resolution
         last_snap = conn.execute(
             """
@@ -266,7 +245,7 @@ def check_market_resolutions(
 # Query helpers
 # ---------------------------------------------------------------------------
 def get_market_history(market_id: str) -> Dict:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
 
     market = conn.execute(
@@ -291,7 +270,7 @@ def get_market_history(market_id: str) -> Dict:
 
 
 def get_active_markets() -> List[Dict]:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
         "SELECT * FROM polymarket_markets WHERE status = 'active'"
@@ -301,7 +280,7 @@ def get_active_markets() -> List[Dict]:
 
 
 def get_closing_prices() -> List[Dict]:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
         """
