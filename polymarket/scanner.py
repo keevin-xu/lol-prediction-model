@@ -38,6 +38,7 @@ PAGE_SIZE = 100
 LOL_KEYWORDS = [
     "league of legends",
     "lol esports",
+    "lol:",
     "lol ",
     "nacl ",
     "lck challengers",
@@ -49,6 +50,16 @@ LOL_KEYWORDS = [
     "pcs ",
     "vcs ",
     "tcl ",
+    "msi 20",
+    "mid-season invitational",
+    "worlds 20",
+    "world championship",
+    "esports world cup",
+    "lpl ",
+    "lck ",
+    "lec ",
+    "lcp ",
+    "lcs ",
 ]
 
 # Regex patterns for extracting two team names from market titles
@@ -156,13 +167,25 @@ def _is_lol_market(text: str, db_teams: List[str]) -> bool:
     return False
 
 
+def _clean_team_name(name: str) -> str:
+    """Strip common prefixes/suffixes from parsed team names."""
+    s = name.strip().rstrip("?.")
+    # Remove "LoL: " or "LoL:" prefix
+    s = re.sub(r"^(?:LoL|LOL|lol)\s*:\s*", "", s)
+    # Remove "(BON)" series indicator and everything after " - "
+    s = re.sub(r"\s*\(BO\d+\).*$", "", s)
+    s = re.sub(r"\s*-\s*Game\s+\d+.*$", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s*-\s+(?:Mid-Season|Esports|LCK|LEC|LPL|LCS|MSI|Worlds).*$", "", s, flags=re.IGNORECASE)
+    return s.strip()
+
+
 def parse_teams_from_question(question: str) -> Optional[Tuple[str, str]]:
     """Extract two team names from a market question string."""
     for pattern in [_WHO_WINS_RE, _VS_RE]:
         m = pattern.search(question)
         if m:
-            a = m.group(1).strip().rstrip("?.")
-            b = m.group(2).strip().rstrip("?.")
+            a = _clean_team_name(m.group(1))
+            b = _clean_team_name(m.group(2))
             if a and b:
                 return (a, b)
     return None
@@ -170,34 +193,45 @@ def parse_teams_from_question(question: str) -> Optional[Tuple[str, str]]:
 
 MAX_PAGES = 20  # safety cap — 2000 events is more than enough
 
+LOL_TAG_SLUGS = ["league-of-legends", "esports"]
+
 
 def fetch_active_events(session: requests.Session) -> List[dict]:
-    """Fetch all active, non-closed events from the Gamma API."""
+    """Fetch active LoL events from the Gamma API using targeted tag queries."""
     all_events: List[dict] = []
-    offset = 0
-    for _ in range(MAX_PAGES):
-        try:
-            r = session.get(
-                f"{GAMMA_API}/events",
-                params={
-                    "active": "true",
-                    "closed": "false",
-                    "limit": str(PAGE_SIZE),
-                    "offset": str(offset),
-                },
-                timeout=15,
-            )
-            if r.status_code == 422:
+    seen_ids: set = set()
+
+    # Targeted search by tag_slug — finds ALL LoL markets regardless of pagination
+    for tag in LOL_TAG_SLUGS:
+        offset = 0
+        for _ in range(5):
+            try:
+                r = session.get(
+                    f"{GAMMA_API}/events",
+                    params={
+                        "active": "true",
+                        "closed": "false",
+                        "tag_slug": tag,
+                        "limit": str(PAGE_SIZE),
+                        "offset": str(offset),
+                    },
+                    timeout=15,
+                )
+                if r.status_code != 200:
+                    break
+                batch = r.json()
+            except requests.RequestException as e:
+                logger.warning(f"Gamma API error for tag {tag}: {e}")
                 break
-            r.raise_for_status()
-            batch = r.json()
-        except requests.RequestException as e:
-            logger.warning(f"Gamma API error at offset {offset}: {e}")
-            break
-        all_events.extend(batch)
-        if len(batch) < PAGE_SIZE:
-            break
-        offset += PAGE_SIZE
+            for event in batch:
+                eid = event.get("id")
+                if eid and eid not in seen_ids:
+                    all_events.append(event)
+                    seen_ids.add(eid)
+            if len(batch) < PAGE_SIZE:
+                break
+            offset += PAGE_SIZE
+
     return all_events
 
 
@@ -233,7 +267,23 @@ def scan(session: Optional[requests.Session] = None) -> List[MarketOpportunity]:
 
         logger.info(f"  Found potential LoL event: {title}")
 
-        for market in event.get("markets", []):
+        # Ensure markets are populated — the events endpoint sometimes omits them
+        markets = event.get("markets", [])
+        if not markets and slug:
+            try:
+                r = session.get(
+                    f"{GAMMA_API}/events",
+                    params={"slug": slug, "limit": "1"},
+                    timeout=10,
+                )
+                if r.status_code == 200:
+                    full = r.json()
+                    if full:
+                        markets = full[0].get("markets", [])
+            except requests.RequestException:
+                pass
+
+        for market in markets:
             question = market.get("question", "")
             teams = parse_teams_from_question(question)
             if not teams:
@@ -252,10 +302,21 @@ def scan(session: Optional[requests.Session] = None) -> List[MarketOpportunity]:
                 logger.warning(f"    Could not match teams: {unmatched}")
                 continue
 
-            # Parse prices
+            # Parse prices — API sometimes returns these as JSON strings
             prices = market.get("outcomePrices", [])
             tokens = market.get("clobTokenIds", [])
             outcomes = market.get("outcomes", [])
+
+            if isinstance(prices, str):
+                try:
+                    prices = json.loads(prices)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            if isinstance(tokens, str):
+                try:
+                    tokens = json.loads(tokens)
+                except (json.JSONDecodeError, TypeError):
+                    continue
 
             if len(prices) < 2 or len(tokens) < 2:
                 continue
