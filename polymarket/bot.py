@@ -40,6 +40,8 @@ from polymarket.paper_trader import (
 )
 from polymarket.scanner import MarketOpportunity, scan
 
+DB_PATH = _ROOT / "db" / "lol_model.db"
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
@@ -142,12 +144,38 @@ class LoLEdgeBot(discord.Client):
                     value=f"**{result['team_a']}**: {result['series_p_a']:.1%}\n**{result['team_b']}**: {result['series_p_b']:.1%}",
                     inline=True,
                 )
+            # Check if there's an active Polymarket market for this matchup
+            import sqlite3 as _sql
+            _conn = _sql.connect(DB_PATH)
+            _pm = _conn.execute(
+                """SELECT slug FROM polymarket_markets
+                   WHERE db_team_a = ? AND db_team_b = ? AND status = 'active'
+                   LIMIT 1""",
+                (result["team_a"], result["team_b"]),
+            ).fetchone()
+            if not _pm:
+                _pm = _conn.execute(
+                    """SELECT slug FROM polymarket_markets
+                       WHERE db_team_a = ? AND db_team_b = ? AND status = 'active'
+                       LIMIT 1""",
+                    (result["team_b"], result["team_a"]),
+                ).fetchone()
+            _conn.close()
+
+            if _pm:
+                embed.add_field(
+                    name="Market",
+                    value=f"[Polymarket](https://polymarket.com/event/{_pm[0]})",
+                    inline=False,
+                )
+
             if result.get("warnings"):
                 embed.add_field(
                     name="⚠️ Warnings",
                     value="\n".join(result["warnings"]),
                     inline=False,
                 )
+            embed.set_footer(text="Calibrated | Blue side offset available with --side")
             await interaction.response.send_message(embed=embed)
 
         @self.tree.command(name="leaderboard", description="Top 20 teams by rating")
@@ -251,10 +279,14 @@ class LoLEdgeBot(discord.Client):
         opp = sig.opportunity
         bet_team = opp.db_team_a if sig.side == "team_a" else opp.db_team_b
 
+        color = discord.Color.orange() if sig.cross_region else (
+            discord.Color.green() if sig.edge >= 0.05 else discord.Color.yellow()
+        )
+
         embed = discord.Embed(
             title=f"+EV: {opp.db_team_a} vs {opp.db_team_b}",
             url=opp.url,
-            color=discord.Color.green() if sig.edge >= 0.05 else discord.Color.yellow(),
+            color=color,
         )
         embed.add_field(
             name="Model",
@@ -268,10 +300,22 @@ class LoLEdgeBot(discord.Client):
         )
         embed.add_field(
             name="Signal",
-            value=f"Edge: **+{sig.edge:.1%}** on {bet_team}\nKelly: {sig.kelly_fraction:.1%}\nSpread: ${opp.spread:.3f}",
+            value=(
+                f"Edge: **+{sig.edge:.1%}** on {bet_team}\n"
+                f"Kelly: {sig.kelly_fraction:.1%}\n"
+                f"Spread: ${opp.spread:.3f} | Vol: ${opp.volume:,.0f}"
+            ),
             inline=False,
         )
-        embed.set_footer(text=f"Ratings: {sig.rating_a:.0f} vs {sig.rating_b:.0f}")
+        links = f"[Polymarket]({opp.url})"
+        embed.add_field(name="Links", value=links, inline=False)
+        if sig.warnings:
+            embed.add_field(
+                name="Warnings",
+                value="\n".join(sig.warnings),
+                inline=False,
+            )
+        embed.set_footer(text=f"Ratings: {sig.rating_a:.0f} vs {sig.rating_b:.0f} | Calibrated")
         return embed
 
     # -----------------------------------------------------------------------
@@ -391,10 +435,12 @@ class LoLEdgeBot(discord.Client):
     async def on_ready(self) -> None:
         logger.info(f"Bot connected as {self.user} (ID: {self.user.id})")
 
-        # Sync slash commands
+        # Sync slash commands to all guilds the bot is in (instant, no 1-hour wait)
         try:
-            synced = await self.tree.sync()
-            logger.info(f"Synced {len(synced)} slash commands")
+            for guild in self.guilds:
+                self.tree.copy_global_to(guild=guild)
+                synced = await self.tree.sync(guild=guild)
+                logger.info(f"Synced {len(synced)} slash commands to {guild.name}")
         except Exception as e:
             logger.error(f"Failed to sync commands: {e}")
 
@@ -415,7 +461,8 @@ class LoLEdgeBot(discord.Client):
                 f"Bankroll: ${summary.bankroll:,.2f} | "
                 f"Record: {summary.wins}W/{summary.losses}L | "
                 f"Open: {summary.open_positions}\n"
-                f"Commands: `/scan` `/predict` `/portfolio` `/trades` `/settle` `/leaderboard` `/status`"
+                f"Commands: `/scan` `/predict` `/portfolio` `/trades` `/settle` "
+                f"`/leaderboard` `/status` `/reset`"
             )
 
     async def setup_hook(self) -> None:
