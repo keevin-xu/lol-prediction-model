@@ -126,19 +126,8 @@ CREATE TABLE IF NOT EXISTS polymarket_prices (
     source TEXT DEFAULT 'gamma'
 );
 
-CREATE TABLE IF NOT EXISTS polymarket_price_history (
-    id INTEGER PRIMARY KEY,
-    market_id TEXT NOT NULL REFERENCES polymarket_markets(market_id),
-    token_id TEXT NOT NULL,
-    timestamp TEXT NOT NULL,
-    price REAL NOT NULL,
-    interval TEXT NOT NULL,
-    UNIQUE(market_id, token_id, timestamp, interval)
-);
-
 CREATE INDEX IF NOT EXISTS idx_pm_markets_status ON polymarket_markets(status);
 CREATE INDEX IF NOT EXISTS idx_pm_prices_market ON polymarket_prices(market_id, timestamp);
-CREATE INDEX IF NOT EXISTS idx_pm_price_hist ON polymarket_price_history(market_id, token_id, timestamp);
 
 -- ===== Historical Bookmaker Odds =====
 

@@ -39,7 +39,7 @@ class EdgeSignal:
 # ---------------------------------------------------------------------------
 # Edge computation
 # ---------------------------------------------------------------------------
-MAX_KELLY = 0.25  # cap Kelly at 25% of bankroll
+MAX_KELLY = 0.0625  # quarter-Kelly — conservative for unvalidated model
 
 
 def compute_edge(model_prob: float, market_prob: float) -> float:

@@ -26,7 +26,6 @@ sys.path.insert(0, str(_ROOT))
 from polymarket.scanner import GAMMA_API, MarketOpportunity
 
 DB_PATH = _ROOT / "db" / "lol_model.db"
-CLOB_API = "https://clob.polymarket.com"
 
 
 def _make_session() -> requests.Session:
@@ -37,7 +36,7 @@ def _make_session() -> requests.Session:
 
 
 # ---------------------------------------------------------------------------
-# Market registration
+# Record prices (single transaction)
 # ---------------------------------------------------------------------------
 def record_prices(opportunities: List[MarketOpportunity]) -> int:
     """Register markets and record price snapshots in a single transaction."""
@@ -90,74 +89,6 @@ def record_prices(opportunities: List[MarketOpportunity]) -> int:
 
 
 # ---------------------------------------------------------------------------
-# CLOB price history backfill
-# ---------------------------------------------------------------------------
-def fetch_clob_price_history(
-    token_id: str,
-    interval: str = "5m",
-    fidelity: int = 500,
-    session: Optional[requests.Session] = None,
-) -> List[Dict]:
-    session = session or _make_session()
-    try:
-        r = session.get(
-            f"{CLOB_API}/prices-history",
-            params={"market": token_id, "interval": interval, "fidelity": str(fidelity)},
-            timeout=15,
-        )
-        r.raise_for_status()
-        data = r.json()
-        if isinstance(data, dict) and "history" in data:
-            return data["history"]
-        if isinstance(data, list):
-            return data
-        return []
-    except requests.RequestException as e:
-        logger.warning(f"CLOB price history fetch failed for {token_id[:12]}…: {e}")
-        return []
-
-
-def backfill_market_history(
-    market_id: str,
-    token_id_a: str,
-    token_id_b: str,
-    interval: str = "5m",
-    session: Optional[requests.Session] = None,
-) -> int:
-    session = session or _make_session()
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    inserted = 0
-
-    for token_id in [token_id_a, token_id_b]:
-        if not token_id:
-            continue
-        history = fetch_clob_price_history(token_id, interval=interval, session=session)
-        for point in history:
-            ts = point.get("t") or point.get("timestamp") or point.get("time")
-            price = point.get("p") or point.get("price")
-            if ts is None or price is None:
-                continue
-            try:
-                conn.execute(
-                    """
-                    INSERT OR IGNORE INTO polymarket_price_history
-                        (market_id, token_id, timestamp, price, interval)
-                    VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (market_id, token_id, str(ts), float(price), interval),
-                )
-                inserted += 1
-            except (ValueError, sqlite3.Error):
-                continue
-
-    conn.commit()
-    conn.close()
-    if inserted > 0:
-        logger.info(f"Backfilled {inserted} price history points for market {market_id[:8]}…")
-    return inserted
-
-
-# ---------------------------------------------------------------------------
 # Resolution tracking
 # ---------------------------------------------------------------------------
 def check_market_resolutions(
@@ -168,21 +99,19 @@ def check_market_resolutions(
     active = conn.execute(
         "SELECT market_id, db_team_a, db_team_b FROM polymarket_markets WHERE status = 'active'"
     ).fetchall()
-    conn.close()
 
     if not active:
+        conn.close()
         return []
 
     resolved_ids = []
     for market_id, db_team_a, db_team_b in active:
         try:
             r = session.get(f"{GAMMA_API}/markets/{market_id}", timeout=10)
-            if r.status_code == 404:
+            if r.status_code != 200:
                 continue
-            r.raise_for_status()
             market = r.json()
-        except requests.RequestException as e:
-            logger.debug(f"Resolution check failed for {market_id[:8]}…: {e}")
+        except requests.RequestException:
             continue
 
         if not market.get("closed") or not market.get("resolvedBy"):
@@ -206,69 +135,32 @@ def check_market_resolutions(
             continue
 
         now = datetime.now(timezone.utc).isoformat()
-
-        conn = sqlite3.connect(DB_PATH, timeout=10)
-        # Get closing price: last snapshot before resolution
         last_snap = conn.execute(
-            """
-            SELECT price_a, price_b FROM polymarket_prices
-            WHERE market_id = ? ORDER BY timestamp DESC LIMIT 1
-            """,
+            "SELECT price_a, price_b FROM polymarket_prices WHERE market_id = ? ORDER BY timestamp DESC LIMIT 1",
             (market_id,),
         ).fetchone()
-
-        closing_a = last_snap[0] if last_snap else None
-        closing_b = last_snap[1] if last_snap else None
 
         conn.execute(
             """
             UPDATE polymarket_markets SET
-                status = 'resolved',
-                resolution_winner = ?,
-                resolution_time = ?,
-                closing_price_a = ?,
-                closing_price_b = ?
+                status = 'resolved', resolution_winner = ?, resolution_time = ?,
+                closing_price_a = ?, closing_price_b = ?
             WHERE market_id = ?
             """,
-            (winner, now, closing_a, closing_b, market_id),
+            (winner, now, last_snap[0] if last_snap else None,
+             last_snap[1] if last_snap else None, market_id),
         )
-        conn.commit()
-        conn.close()
-
         resolved_ids.append(market_id)
         logger.info(f"Market resolved: {db_team_a} vs {db_team_b} → {winner}")
 
+    conn.commit()
+    conn.close()
     return resolved_ids
 
 
 # ---------------------------------------------------------------------------
 # Query helpers
 # ---------------------------------------------------------------------------
-def get_market_history(market_id: str) -> Dict:
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    conn.row_factory = sqlite3.Row
-
-    market = conn.execute(
-        "SELECT * FROM polymarket_markets WHERE market_id = ?", (market_id,)
-    ).fetchone()
-    if not market:
-        conn.close()
-        return {}
-
-    prices = conn.execute(
-        "SELECT timestamp, price_a, price_b, spread, volume FROM polymarket_prices "
-        "WHERE market_id = ? ORDER BY timestamp ASC",
-        (market_id,),
-    ).fetchall()
-
-    conn.close()
-    return {
-        "market": dict(market),
-        "prices": [dict(p) for p in prices],
-        "snapshots": len(prices),
-    }
-
-
 def get_active_markets() -> List[Dict]:
     conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
