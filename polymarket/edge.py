@@ -15,7 +15,7 @@ from loguru import logger
 _ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_ROOT))
 
-from model.predict import predict_match, win_probability
+from model.predict import check_cross_region, predict_match, win_probability
 from polymarket.scanner import MarketOpportunity, scan
 
 
@@ -32,6 +32,8 @@ class EdgeSignal:
     kelly_fraction: float
     rating_a: float
     rating_b: float
+    cross_region: bool = False
+    warnings: Optional[list] = None
 
 
 # ---------------------------------------------------------------------------
@@ -81,7 +83,6 @@ def find_edges(
     signals: List[EdgeSignal] = []
 
     for opp in opportunities:
-        # Skip illiquid markets
         if opp.spread > max_spread:
             logger.debug(
                 f"  Skipping {opp.db_team_a} vs {opp.db_team_b} — spread too wide (${opp.spread:.3f})"
@@ -89,11 +90,18 @@ def find_edges(
             continue
 
         result = predict_match(opp.db_team_a, opp.db_team_b)
+        is_cross = result.get("cross_region", False)
+        warnings = result.get("warnings", [])
+
+        if is_cross:
+            logger.warning(
+                f"  Cross-region: {opp.db_team_a} vs {opp.db_team_b} — "
+                f"skipping auto-bet (model unreliable for international matchups)"
+            )
 
         edge_a = compute_edge(result["p_a"], opp.market_prob_a)
         edge_b = compute_edge(result["p_b"], opp.market_prob_b)
 
-        # Take the side with larger edge
         if edge_a >= edge_b and edge_a >= min_edge:
             signals.append(EdgeSignal(
                 opportunity=opp,
@@ -104,6 +112,8 @@ def find_edges(
                 kelly_fraction=kelly_fraction(result["p_a"], opp.market_prob_a),
                 rating_a=result["rating_a"],
                 rating_b=result["rating_b"],
+                cross_region=is_cross,
+                warnings=warnings,
             ))
         elif edge_b > edge_a and edge_b >= min_edge:
             signals.append(EdgeSignal(
@@ -115,6 +125,8 @@ def find_edges(
                 kelly_fraction=kelly_fraction(result["p_b"], opp.market_prob_b),
                 rating_a=result["rating_a"],
                 rating_b=result["rating_b"],
+                cross_region=is_cross,
+                warnings=warnings,
             ))
         else:
             logger.debug(
@@ -136,13 +148,20 @@ def format_signal(sig: EdgeSignal) -> str:
     bet_team = opp.db_team_a if sig.side == "team_a" else opp.db_team_b
     lines = [
         f"Match: {opp.db_team_a} vs {opp.db_team_b}",
+    ]
+    if sig.cross_region:
+        lines.append(f"  ⚠ CROSS-REGION — model prediction unreliable, DO NOT auto-bet")
+    lines.extend([
         f"  Model:  {opp.db_team_a} {sig.model_prob_a:.1%}  |  {opp.db_team_b} {sig.model_prob_b:.1%}",
         f"  Market: {opp.db_team_a} {opp.market_prob_a:.1%}  |  {opp.db_team_b} {opp.market_prob_b:.1%}",
         f"  Edge:   +{sig.edge:.1%} on {bet_team}",
         f"  Kelly:  {sig.kelly_fraction:.1%} of bankroll",
         f"  Spread: ${opp.spread:.3f}  |  Volume: ${opp.volume:,.0f}",
         f"  {opp.url}",
-    ]
+    ])
+    if sig.warnings:
+        for w in sig.warnings:
+            lines.append(f"  ⚠ {w}")
     return "\n".join(lines)
 
 

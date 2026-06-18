@@ -165,6 +165,7 @@ class BacktestResult:
     calibration: Dict[str, Tuple[float, float, int]] = field(default_factory=dict)
     league_accuracy: Dict[str, Tuple[int, int]] = field(default_factory=dict)
     predictions: List[Tuple[float, float]] = field(default_factory=list)
+    predictions_with_ids: List[Tuple[str, float, float]] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +239,7 @@ def run_backtest(
         actual = 1.0 if winner == "blue" else 0.0
 
         predictions.append((p_blue, actual))
+        result.predictions_with_ids.append((gameid, p_blue, actual))
 
         # Track accuracy
         predicted_winner = p_blue >= 0.5

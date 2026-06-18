@@ -88,19 +88,65 @@ class LoLEdgeBot(discord.Client):
                 await interaction.followup.send(embed=embed)
 
         @self.tree.command(name="predict", description="Predict a matchup")
-        @app_commands.describe(team_a="First team name", team_b="Second team name")
-        async def cmd_predict(interaction: discord.Interaction, team_a: str, team_b: str) -> None:
-            result = predict_match(team_a, team_b)
+        @app_commands.describe(
+            team_a="First team name",
+            team_b="Second team name",
+            best_of="Series length: 1, 3, 5, or 7 (default: 1)",
+        )
+        @app_commands.choices(best_of=[
+            app_commands.Choice(name="Bo1", value=1),
+            app_commands.Choice(name="Bo3", value=3),
+            app_commands.Choice(name="Bo5", value=5),
+            app_commands.Choice(name="Bo7", value=7),
+        ])
+        async def cmd_predict(
+            interaction: discord.Interaction,
+            team_a: str,
+            team_b: str,
+            best_of: int = 1,
+        ) -> None:
+            result = predict_match(team_a, team_b, best_of=best_of)
+            color = discord.Color.orange() if result.get("cross_region") else discord.Color.blue()
             embed = discord.Embed(
                 title=f"{result['team_a']} vs {result['team_b']}",
-                color=discord.Color.blue(),
+                color=color,
             )
-            embed.add_field(name="Ratings", value=f"{result['rating_a']:.1f} vs {result['rating_b']:.1f}", inline=False)
+            if result.get("region_a") and result.get("region_b"):
+                embed.add_field(
+                    name="Regions",
+                    value=f"{result['region_a']} (Tier {result['tier_a']}) vs {result['region_b']} (Tier {result['tier_b']})",
+                    inline=False,
+                )
+            if result.get("cross_region") and result.get("regional_adjustment"):
+                adj = result["regional_adjustment"]
+                embed.add_field(
+                    name="Ratings (raw → adjusted)",
+                    value=(
+                        f"{result['rating_a']:.1f} → {result['adj_rating_a']:.1f} vs "
+                        f"{result['rating_b']:.1f}\n"
+                        f"Regional adj: {adj:+.1f} ELO to {result['team_a']}"
+                    ),
+                    inline=False,
+                )
+            else:
+                embed.add_field(name="Ratings", value=f"{result['rating_a']:.1f} vs {result['rating_b']:.1f}", inline=False)
             embed.add_field(
-                name="Win Probability",
+                name="Single Game",
                 value=f"**{result['team_a']}**: {result['p_a']:.1%}\n**{result['team_b']}**: {result['p_b']:.1%}",
-                inline=False,
+                inline=True,
             )
+            if result.get("series_p_a") is not None:
+                embed.add_field(
+                    name=f"Bo{best_of} Series",
+                    value=f"**{result['team_a']}**: {result['series_p_a']:.1%}\n**{result['team_b']}**: {result['series_p_b']:.1%}",
+                    inline=True,
+                )
+            if result.get("warnings"):
+                embed.add_field(
+                    name="⚠️ Warnings",
+                    value="\n".join(result["warnings"]),
+                    inline=False,
+                )
             await interaction.response.send_message(embed=embed)
 
         @self.tree.command(name="leaderboard", description="Top 20 teams by rating")
@@ -244,6 +290,12 @@ class LoLEdgeBot(discord.Client):
             self.last_scan = datetime.now(timezone.utc)
             self.markets_found = len(opportunities)
 
+            # Record price snapshots for all discovered markets
+            if opportunities:
+                from polymarket.price_tracker import record_prices
+                n_recorded = record_prices(opportunities)
+                logger.info(f"  Recorded {n_recorded} price snapshots")
+
             if not opportunities:
                 logger.info("  No LoL markets found")
                 return
@@ -263,7 +315,13 @@ class LoLEdgeBot(discord.Client):
                     self._notified[sig.opportunity.market_id] = sig
                     logger.info(f"  Alerted: {sig.opportunity.db_team_a} vs {sig.opportunity.db_team_b} (edge={sig.edge:.1%})")
 
-                    # Paper trade: auto-place bet on new signals
+                    if sig.cross_region:
+                        await channel.send(
+                            f"⚠️ **Cross-region matchup** — model prediction is unreliable. "
+                            f"Skipping auto-bet. Use external analysis for this market."
+                        )
+                        continue
+
                     trade = place_bet(sig)
                     if trade:
                         await channel.send(
@@ -279,6 +337,11 @@ class LoLEdgeBot(discord.Client):
     async def settle_loop(self) -> None:
         """Hourly check for resolved markets and settled positions."""
         try:
+            from polymarket.price_tracker import check_market_resolutions
+            resolved_markets = check_market_resolutions()
+            if resolved_markets:
+                logger.info(f"  {len(resolved_markets)} Polymarket markets resolved")
+
             settled = check_resolutions()
             if not settled:
                 return

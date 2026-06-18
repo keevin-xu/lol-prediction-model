@@ -5,13 +5,30 @@
 
 ## What This Project Does
 
-Builds a win-probability model for League of Legends Tier 2 professional matches, then uses that model to find edge on Polymarket prediction markets.
+Predicts win probabilities for League of Legends Tier 2 professional matches, then scans Polymarket for +EV betting opportunities and alerts via Discord.
 
-The model has two rating layers:
-1. **Solo queue rating** — raw individual player strength from ladder rank/LP (scraped from TrackingThePros)
-2. **Pro match ELO** — team strength from official competitive results (scraped from Oracle's Elixir)
+**Current model performance (backtested on 8,000+ matches):**
+- V1 ELO: 63.3% accuracy, 0.2256 Brier score
+- V2 LogReg (ELO + recent form): 63.9% accuracy, 0.2222 Brier score
 
-These blend dynamically: the less pro data a team has, the more the model leans on solo queue. See `docs/model_design.md` for the full math.
+---
+
+## Project Status
+
+| Component | Status | Notes |
+|---|---|---|
+| OE scraper | ✅ Done | 10,372 T2 matches (2024–2026) in SQLite |
+| TTP scraper | ✅ Done | 2,291 players with soloq ratings |
+| Roster scraper | ✅ Done | 598 roster entries across 97 teams |
+| V1 ELO model | ✅ Done | Regional offsets + recency decay |
+| V2 LogReg model | ✅ Done | ELO + form features, +0.9% accuracy over V1 |
+| Backtester | ✅ Done | Walk-forward eval + grid search optimizer |
+| Platt calibration | ✅ Done | Fixes overconfident predictions at extremes |
+| Polymarket scanner | ✅ Done | Scans every 5 min, 0 T2 match markets exist currently |
+| Discord bot | ✅ Done | `/predict`, `/scan`, `/portfolio`, `/trades`, `/leaderboard`, `/status`, `/settle` |
+| Paper trading | ✅ Done | Auto-bets on +EV signals, tracks P&L |
+
+**Known limitation:** Polymarket has had exactly 1 LoL market ever (2020 Worlds winner). T2 head-to-head match markets don't exist on the platform yet. The bot will catch them if they appear.
 
 ---
 
@@ -19,176 +36,216 @@ These blend dynamically: the less pro data a team has, the more the model leans 
 
 ```
 lol-prediction-model/
-├── CLAUDE.md                  ← you are here
+├── CLAUDE.md                        ← you are here
 ├── data/
-│   ├── raw/                   ← never edit; scraped output goes here
-│   │   ├── trackingthepros/   ← player soloq snapshots (daily)
-│   │   ├── oracleselixir/     ← pro match CSVs by year
-│   │   └── rosters/           ← current team roster snapshots (daily)
-│   └── processed/             ← cleaned/joined data for model input
+│   ├── raw/
+│   │   ├── trackingthepros/         ← daily player soloq snapshots (JSON)
+│   │   ├── oracleselixir/           ← annual match CSVs + gdrive_ids.json
+│   │   └── rosters/                 ← daily roster snapshots (JSON)
+│   └── processed/
+│       └── unmatched_players.json   ← roster players not matched to TTP
 ├── scrapers/
-│   ├── ttp_scraper.py         ← TrackingThePros player + soloq data
-│   ├── oe_scraper.py          ← Oracle's Elixir match CSV downloader
-│   └── roster_scraper.py      ← current team rosters (day-of)
+│   ├── oe_scraper.py                ← Oracle's Elixir match data (Google Drive)
+│   ├── ttp_scraper.py               ← TrackingThePros soloq data (DataTables API)
+│   └── roster_scraper.py            ← Leaguepedia Cargo API rosters
 ├── model/
-│   ├── soloq_rating.py        ← convert rank/LP → numerical rating
-│   ├── pro_elo.py             ← team ELO from match results
-│   ├── blend.py               ← dynamic alpha blend of soloq + pro ELO
-│   └── predict.py             ← final win probability output
+│   ├── soloq_rating.py              ← rank/LP → numeric rating + team aggregation
+│   ├── pro_elo.py                   ← ELO engine with regional offsets + decay
+│   ├── blend.py                     ← dynamic alpha blend of soloq + pro ELO
+│   ├── predict.py                   ← win probability output + CLI
+│   ├── features.py                  ← rolling team features from OE match data
+│   ├── v2_model.py                  ← gradient boosting / logistic regression v2
+│   ├── calibration.py               ← Platt scaling for probability calibration
+│   ├── calibration_params.json      ← fitted calibration parameters
+│   └── v2_model.pkl                 ← serialized v2 model
 ├── backtest/
-│   └── backtest.py            ← simulated P&L over historical data
+│   └── backtest.py                  ← walk-forward backtester + grid search
 ├── polymarket/
-│   ├── scanner.py             ← find open LoL T2 markets
-│   └── edge.py                ← compare model prob vs market prob
+│   ├── scanner.py                   ← find active LoL T2 markets on Polymarket
+│   ├── edge.py                      ← compare model prob vs market prob
+│   ├── paper_trader.py              ← paper trading position tracking + settlement
+│   └── bot.py                       ← Discord bot (scan loop + slash commands)
 ├── db/
-│   └── schema.sql             ← SQLite schema
+│   ├── schema.sql                   ← SQLite schema (7 tables)
+│   ├── init_db.py                   ← creates/resets database
+│   └── lol_model.db                 ← SQLite database (not in git)
 ├── docs/
-│   ├── model_design.md        ← full math and design decisions
-│   └── data_sources.md        ← how each source works, gotchas
-├── tests/
-│   └── ...
+│   ├── model_system_deep_dive.md    ← full math, data flow, worked examples
+│   ├── context_handoff.md           ← partner handoff notes
+│   └── scraper_roadmap.md           ← original scraper planning doc
 ├── requirements.txt
-└── .env.example               ← env vars needed (no secrets in git)
+└── .env.example                     ← env vars (NEVER put secrets here)
 ```
 
 ---
 
 ## Data Sources
 
-### 1. TrackingThePros — Solo Queue Ratings
-**URL:** https://www.trackingthepros.com/players  
-**What we get:** Pro player → summoner account(s) → current rank + LP + server  
-**Method:** Playwright headless browser (site is JS-rendered; no public API)  
-**Scraper:** `scrapers/ttp_scraper.py`  
-**Schedule:** Daily snapshot, saved to `data/raw/trackingthepros/YYYY-MM-DD.json`  
+### 1. Oracle's Elixir — Pro Match Results
+**Source:** Google Drive folder (NOT the old S3 bucket — that's dead)
+**Scraper:** `scrapers/oe_scraper.py`
+**Data:** 10,372 T2 matches across 18 leagues, 440 teams, 2024–2026
 
-Key fields we extract:
-- `player_name` — pro player handle
-- `role` — Top/Jungle/Mid/ADC/Support
-- `team` — current team
-- `region` — NA/EU/KR/BR/etc.
-- `accounts[]` — list of summoner names with server + rank + LP
+The datalisk.io API checks for updates; Google Drive file IDs are cached in `gdrive_ids.json`.
 
-**Gotcha:** One pro may have multiple accounts. We take the **highest-ranked account** as the primary signal, not an average.
-
-### 2. Oracle's Elixir — Pro Match Results
-**URL:** https://oracleselixir.com/tools/downloads  
-**Direct S3:** `https://oracleselixir-downloadable-match-data.s3-us-west-2.amazonaws.com/{YEAR}_LoL_esports_match_data_from_OraclesElixir.csv`  
-**Method:** Direct HTTP download — no browser needed, just `requests`  
-**Scraper:** `scrapers/oe_scraper.py`  
-**Schedule:** Download 2024 + 2025 + 2026 CSVs on first run; update 2026 weekly  
-
-Key columns we use:
-- `gameid`, `date`, `league`, `patch`, `side` (Blue/Red), `position`
-- `teamname`, `playername`, `result` (1=win, 0=loss)
-- `gamelength`, `kills`, `deaths`, `assists`, `totalgold`
-
-**T2 league filter** — include only these `league` values:
+**T2 leagues (OE abbreviations):**
 ```
-NACL, LCK CL, LEC (ERLs), LLA, CBLOL, TCL, VCS, PCS, LJL, LCO
+NACL, LCKC, EM, LEC, NLC, LFL, ESLOL, LVP SL, TCL, LCO,
+LLA, LTA N, LTA S, CBLOL Academy, LRN, LRS, PCS, VCS, LJL
 ```
-Exclude: LCS, LEC, LCK, LPL, MSI, Worlds (those are T1).
 
-### 3. Current Rosters — Day-of Snapshot
-**Source:** Leaguepedia API (MediaWiki) or TrackingThePros team pages  
-**What we get:** Active 5-man roster for each team on match day  
-**Scraper:** `scrapers/roster_scraper.py`  
-**Schedule:** Run morning of any match day  
+### 2. TrackingThePros — Solo Queue Ratings
+**Source:** TTP DataTables API (`/d/list_players`, paginated at 200/page)
+**Scraper:** `scrapers/ttp_scraper.py`
+**Data:** 2,291 players, 1,161 with ranked soloq data
 
-This is critical for the soloq blend — if a player subbed in yesterday, the roster from last week is wrong.
+**Critical:** The rank parser regex in `parse_rank()` uses explicit division alternatives `(IV|III|II|I)` in that order. Do not simplify — an earlier version silently broke Challenger LP parsing.
+
+### 3. Leaguepedia — Current Rosters
+**Source:** Cargo API at `lol.fandom.com/api.php`
+**Scraper:** `scrapers/roster_scraper.py`
+**Data:** 598 roster entries, 97 teams
+
+**Leaguepedia gotchas:**
+- Aggressive rate limiting — scraper has 30s×N exponential backoff
+- Field is `TournamentLevel = 'Secondary'` (NOT `Tier = '2'`)
+- League names differ from OE (e.g., `"North American Challengers League"` not `"NACL"`)
+- Uses POST requests with `User-Agent` header including contact email
 
 ---
 
-## Model Design (Summary)
+## Model Architecture
 
-Full details in `docs/model_design.md`. Quick reference:
+### V1: ELO + SoloQ Blend (production)
 
-```python
-# 1. SoloQ rating per player (Master+ uses log compression)
-soloq_rating = tier_base + 400 * log(1 + LP / 400)  # Master+
-soloq_rating = tier_base + LP                         # below Master
-
-# 2. Team soloq rating (weighted by role)
-team_soloq = 0.20*top + 0.22*jungle + 0.23*mid + 0.20*bot + 0.15*support
-
-# 3. Normalize to ELO scale
-team_soloq_elo = 1500 + 100 * zscore(team_soloq)
-
-# 4. Pro ELO update after each match
-K = 32  # higher for new/T2 teams
-expected = 1 / (1 + 10**((opp_elo - team_elo) / 400))
-new_elo = old_elo + K * (result - expected)
-
-# 5. Dynamic blend (more pro data → trust pro ELO more)
-alpha = games_played / (games_played + 10)
-final_rating = alpha * pro_elo + (1 - alpha) * team_soloq_elo
-
-# 6. Win probability
-P_win = 1 / (1 + 10**(-(rating_A - rating_B) / 400))
+```
+accounts table → soloq_rating.py → player ratings
+                                          ↓
+rosters table ──→ pro_elo.py ──→ team ELO (with regional offsets + decay)
+                       ↑                  ↓
+matches table ─────────┘           blend.py → predict.py → P(win)
 ```
 
-**Parameters to fit later via backtest:** role weights, K-factor, blend denominator (10), scale (400), blue-side offset.
+**Optimized parameters (from grid search over 100+ combos):**
+- `K = 64` — ELO volatility (high for T2 instability)
+- `blend_k = 5` — trust pro results over soloq faster
+- `scale = 400` — ELO scale factor
+- `half_life = 270 days` — ELO decays toward 1500 after inactivity
+
+**Regional offsets (soloq-derived):**
+```
+KR: +126  |  EU: +120  |  CN: +89  |  JP: +38  |  NA: +36
+VN: +23   |  BR: -16   |  TR: -23  |  PCS: -78 |  OCE: -260
+```
+
+### V2: Logistic Regression (experimental, +0.9% accuracy)
+
+Adds rolling team features on top of ELO:
+- Recent win rate (last 5/15 games)
+- Average gold diff at 10/15 min
+- KDA ratio
+- Win/loss streak
+
+Trained via walk-forward with expanding window. Model saved at `model/v2_model.pkl`.
 
 ---
 
-## Today's Sprint
+## Discord Bot
 
-### Goal: Working scrapers for soloq + pro match data + day-of rosters
+**File:** `polymarket/bot.py`
 
-**Task 1 — OE scraper** (simpler, do first):
-- `oe_scraper.py`: download 2024/2025/2026 CSVs, filter T2 leagues, save to `data/raw/oracleselixir/`
-- Parse into SQLite `matches` + `games` tables
+**Requires in `.env`:**
+```
+DISCORD_BOT_TOKEN=your_token
+DISCORD_CHANNEL_ID=your_channel_id
+```
 
-**Task 2 — TTP scraper** (harder, needs Playwright):
-- `ttp_scraper.py`: launch headless browser, wait for table, extract all rows
-- Save daily snapshot to `data/raw/trackingthepros/YYYY-MM-DD.json`
-- Parse into SQLite `players` + `accounts` tables
+**Commands:**
+| Command | What it does |
+|---|---|
+| `/predict <team_a> <team_b>` | Model prediction for a matchup |
+| `/scan` | Force immediate Polymarket scan |
+| `/portfolio` | Paper trading bankroll, P&L, win rate |
+| `/trades` | Open positions + recent settled bets |
+| `/settle` | Force check for resolved markets |
+| `/leaderboard` | Top 20 teams by blended rating |
+| `/status` | Bot uptime, scan count, bankroll |
 
-**Task 3 — Roster scraper**:
-- `roster_scraper.py`: pull current active rosters from Leaguepedia for all T2 leagues
-- Map player handles to their TTP entries
-- Save to `data/raw/rosters/YYYY-MM-DD.json`
+**Background loops:**
+- Scan loop: every 5 minutes, scans Polymarket for LoL T2 markets
+- Settlement loop: every 1 hour, checks if open paper bets resolved
 
-See `docs/scraper_roadmap.md` for the detailed step-by-step plan.
+**Paper trading:** Starting bankroll $1,000. Auto-places bets on +EV signals (3%+ edge, Kelly-sized, 15% max position). Tracks P&L in `paper_trades` and `paper_portfolio` SQLite tables.
+
+---
+
+## Database Schema (SQLite)
+
+| Table | Rows | Populated by |
+|---|---|---|
+| `players` | 2,291 | ttp_scraper.py |
+| `accounts` | 2,300 | ttp_scraper.py (soloq_rating computed on insert) |
+| `matches` | 10,372 | oe_scraper.py |
+| `rosters` | 598 | roster_scraper.py |
+| `teams` | 440 | pro_elo.py (ELO + games_played) |
+| `paper_trades` | 0+ | paper_trader.py (paper bets) |
+| `paper_portfolio` | 0+ | paper_trader.py (daily snapshots) |
 
 ---
 
 ## Dev Setup
 
 ```bash
-# Clone and install
-git clone <repo>
+git clone https://github.com/keevin-xu/lol-prediction-model.git
 cd lol-prediction-model
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium
 
-# Copy env file
 cp .env.example .env
-# Fill in any API keys
+# Fill in DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID
 
-# Init database
 python db/init_db.py
+```
 
-# Run scrapers
-python scrapers/oe_scraper.py       # download OE match data
-python scrapers/ttp_scraper.py      # scrape TTP player/soloq data
-python scrapers/roster_scraper.py   # pull today's rosters
+---
+
+## Running Everything
+
+```bash
+# Scrapers (run periodically)
+python scrapers/oe_scraper.py         # match data (weekly)
+python scrapers/ttp_scraper.py        # soloq snapshots (daily)
+python scrapers/roster_scraper.py     # rosters (match days)
+
+# Model pipeline (after scraper updates)
+python model/soloq_rating.py          # recompute player ratings
+python model/pro_elo.py               # rebuild team ELOs
+
+# Predictions
+python model/predict.py "Solary" "Karmine Corp"
+python model/predict.py --list        # all teams ranked
+
+# Backtesting
+python backtest/backtest.py           # default params
+python backtest/backtest.py --optimize  # grid search
+
+# Discord bot (runs continuously)
+python polymarket/bot.py
 ```
 
 ---
 
 ## Coding Conventions
 
-- **Python 3.11+**
-- All scrapers write raw output to `data/raw/` before any processing — never skip the raw save step
-- Raw files are named `YYYY-MM-DD.json` or `YYYY-MM-DD.csv` for traceability
-- All DB writes go through functions in `db/` — no raw SQL scattered in scrapers
-- Use `loguru` for logging (`from loguru import logger`)
-- Time-based train/val split only — never random (data leakage)
-- Every function that calls a URL should have a retry with exponential backoff
-- Don't commit data files — `data/` is in `.gitignore`
+- **Python 3.9** (system Python on macOS — use `Optional[X]` not `X | None`)
+- `loguru` for all logging
+- All scrapers save raw output to `data/raw/` before processing
+- Retry with exponential backoff on all HTTP calls
+- Time-based train/val splits only — never random
+- Don't commit `data/`, `db/lol_model.db`, `.env`, or `*.pkl` files
+- **NEVER put secrets in `.env.example`** — that file is tracked by git
 
 ---
 
@@ -196,18 +253,41 @@ python scrapers/roster_scraper.py   # pull today's rosters
 
 | Decision | Choice | Reason |
 |---|---|---|
-| SoloQ source | TrackingThePros | Best T2 coverage, includes EU/KR/NA |
-| Pro match source | Oracle's Elixir | Free CSV, reliable, good T2 coverage |
-| DB | SQLite → Postgres | SQLite is fine until we need concurrent writes |
-| Headless browser | Playwright | More reliable than Selenium for modern React |
-| ELO K-factor | 32 (tunable) | Higher than T1 default due to T2 instability |
-| Blend denominator | 10 games | At 10 games, 50/50 pro vs soloq |
+| SoloQ source | TrackingThePros | Best T2 coverage, DataTables API |
+| Match data | Oracle's Elixir (Google Drive) | S3 bucket is dead; GDrive is current |
+| Roster source | Leaguepedia Cargo API | Best coverage but aggressive rate limits |
+| DB | SQLite | Simple, sufficient for single-user |
+| Browser automation | Playwright | Used for GDrive ID discovery + TTP fallback |
+| ELO K-factor | 64 | Backtested optimal for T2 volatility |
+| Blend denominator | 5 | Trust pro results quickly |
+| Half-life decay | 270 days | Handles roster changes + inactive teams |
+| V2 model | Logistic regression | GBM overfit; LogReg stays disciplined |
+| Market scanner | Polymarket Gamma API | Public, no auth needed for reads |
+| Discord notifications | discord.py bot | Full slash commands + background loops |
 
 ---
 
-## Open Questions
+## Backtest Results (Latest)
 
-- [ ] Which T2 regions are we prioritizing first? (affects roster scraper scope)
-- [ ] Are we placing bets manually or via Polymarket API?
-- [ ] What's the starting bankroll / max bet size?
-- [ ] Do we want patch-level features in v1 or defer to v2?
+```
+V1 ELO:     63.3% accuracy  |  0.2256 Brier  |  0.6430 Log Loss
+V2 LogReg:  63.9% accuracy  |  0.2222 Brier  |  0.6351 Log Loss
+Random:     50.0% accuracy  |  0.2500 Brier  |  0.6931 Log Loss
+```
+
+**Calibration (V1, 80%+ range still overconfident):**
+- 70-75% predicted → 71% actual ✓
+- 80-85% predicted → 80% actual ✓
+- 85-90% predicted → 80% actual ✗ (overconfident)
+- 90%+ predicted → 80% actual ✗ (overconfident)
+
+---
+
+## What's NOT Working / Known Issues
+
+1. **No Polymarket T2 match markets exist** — the scanner runs but finds nothing. May need to target traditional esports bookmakers instead.
+2. **6 league mappings missing** from roster scraper: LCO, ESLOL, LEC, LTA N, LTA S, CBLOL Academy — Leaguepedia names unconfirmed.
+3. **Only 29 of 440 teams have soloq baselines** — roster coverage is sparse.
+4. **Cross-region ELO is imprecise** — soloq offsets help but teams from different leagues never play each other (except EM).
+5. **Model overconfident above 85%** — Platt scaling helps slightly but doesn't fully fix it.
+6. **Bot token was leaked** — the old token was committed to `.env.example` and GitHub revoked it. Always reset and use the new token in `.env` only.
