@@ -1,14 +1,18 @@
 """
-V2 prediction model — gradient boosted classifier using team-level
-features extracted from match history.
+V3 prediction model — gradient boosted classifier using expanded
+team-level features + draft quality features.
 
-Uses the v1 ELO rating as one feature among many (recent form, gold
-differentials, KDA, objective control). Walk-forward training ensures
-no lookahead.
+V3 uses ~90 features vs V2's 28:
+- 39 rolling stats per side (objectives, laning, economy, vision, tempo)
+- 4 draft features per side (champion WR, meta score, comfort)
+- 12+ differentials
+- ELO difference from V1
+
+Walk-forward training ensures no lookahead.
 
 Run:
   python model/v2_model.py                # train + evaluate
-  python model/v2_model.py --compare      # side-by-side v1 vs v2
+  python model/v2_model.py --compare      # side-by-side v1 vs v3
 """
 
 import argparse
@@ -29,23 +33,17 @@ sys.path.insert(0, str(_ROOT))
 from backtest.backtest import ELOTracker, WARMUP_MONTHS
 from model.calibration import PlattCalibrator
 from model.features import build_feature_dataset
+from model.draft_features import build_draft_features
 from model.pro_elo import compute_regional_offsets, get_team_soloq_elos
 
 DB_PATH = _ROOT / "db" / "lol_model.db"
-MODEL_PATH = _ROOT / "model" / "v2_model.pkl"
+MODEL_PATH = _ROOT / "model" / "v3_model.pkl"
 
-FEATURE_COLS = [
-    "blue_win_rate", "blue_win_rate_last5", "blue_streak",
-    "blue_avg_kills", "blue_avg_deaths", "blue_kda",
-    "blue_avg_gamelength", "blue_avg_gd10", "blue_avg_gd15",
-    "blue_fb_rate", "blue_ft_rate", "blue_games_played",
-    "red_win_rate", "red_win_rate_last5", "red_streak",
-    "red_avg_kills", "red_avg_deaths", "red_kda",
-    "red_avg_gamelength", "red_avg_gd10", "red_avg_gd15",
-    "red_fb_rate", "red_ft_rate", "red_games_played",
-    "wr_diff", "kda_diff", "gd15_diff", "gd10_diff",
-    "streak_diff", "fb_diff",
-]
+
+def get_feature_cols(df: pd.DataFrame) -> List[str]:
+    """Dynamically get all feature columns (everything except metadata and target)."""
+    exclude = {"gameid", "date", "league", "result"}
+    return [c for c in df.columns if c not in exclude]
 
 
 def walk_forward_evaluate(
@@ -53,35 +51,29 @@ def walk_forward_evaluate(
     warmup_frac: float = 0.15,
     retrain_every: int = 500,
 ) -> Tuple[List[float], List[float], List[float]]:
-    """
-    Walk-forward evaluation with expanding training window.
-
-    1. Use first warmup_frac of data for initial training
-    2. Predict next batch, retrain every `retrain_every` matches
-    3. Returns (v2_predictions, v1_predictions, actuals) — all on the test set
-    """
     n = len(df)
     warmup_end = int(n * warmup_frac)
+    if warmup_end < 1000:
+        warmup_end = min(1000, n // 3)
 
-    if warmup_end < 200:
-        warmup_end = min(200, n // 2)
-
-    X = df[FEATURE_COLS].values
+    feature_cols = get_feature_cols(df)
+    X = df[feature_cols].values
     y = df["result"].values
 
-    # Also run v1 ELO for comparison
+    # V1 ELO baseline for comparison
     soloq = get_team_soloq_elos()
     offsets = compute_regional_offsets()
     from backtest.backtest import load_matches
     matches = load_matches()
     first = matches[0][1]
     wy, wm = int(first[:4]), int(first[5:7]) + WARMUP_MONTHS
-    while wm > 12: wm -= 12; wy += 1
+    while wm > 12:
+        wm -= 12
+        wy += 1
     cutoff = f'{wy:04d}-{wm:02d}-01'
     tracker = ELOTracker(K=64, blend_k=5, scale=400, half_life_days=270,
                          soloq_baselines=soloq, regional_offsets=offsets)
 
-    # Build v1 predictions aligned to feature dataset indices
     feature_gameids = set(df["gameid"].values)
     v1_preds_map: Dict[str, float] = {}
     for gameid, date, league, blue, red, winner in matches:
@@ -93,36 +85,35 @@ def walk_forward_evaluate(
             v1_preds_map[gameid] = p
         tracker.update(blue, red, winner, league, date)
 
-    v2_predictions: List[float] = []
+    v3_predictions: List[float] = []
     v1_predictions: List[float] = []
     actuals: List[float] = []
 
     model = None
     last_train_end = 0
 
-    logger.info(f"Walk-forward: {warmup_end} warmup, {n - warmup_end} test, retrain every {retrain_every}")
+    logger.info(f"Walk-forward: {warmup_end} warmup, {n - warmup_end} test, "
+                f"{len(feature_cols)} features, retrain every {retrain_every}")
 
     for i in range(warmup_end, n):
-        # Retrain periodically
         if model is None or (i - last_train_end) >= retrain_every:
-            X_train = X[:i]
+            X_train = np.nan_to_num(X[:i], nan=0.0)
             y_train = y[:i]
-            # Handle NaN in features
-            X_train = np.nan_to_num(X_train, nan=0.0)
             model = HistGradientBoostingClassifier(
                 max_iter=200,
-                max_depth=4,
+                max_depth=3,
                 learning_rate=0.05,
-                min_samples_leaf=20,
+                min_samples_leaf=30,
+                l2_regularization=1.0,
+                max_features=0.5,
                 random_state=42,
             )
             model.fit(X_train, y_train)
             last_train_end = i
 
-        # Predict
         x_test = np.nan_to_num(X[i:i+1], nan=0.0)
-        p_v2 = model.predict_proba(x_test)[0][1]  # P(blue wins)
-        v2_predictions.append(float(p_v2))
+        p_v3 = model.predict_proba(x_test)[0][1]
+        v3_predictions.append(float(p_v3))
 
         gid = df.iloc[i]["gameid"]
         p_v1 = v1_preds_map.get(gid, 0.5)
@@ -130,7 +121,7 @@ def walk_forward_evaluate(
 
         actuals.append(float(y[i]))
 
-    return v2_predictions, v1_predictions, actuals
+    return v3_predictions, v1_predictions, actuals
 
 
 def compute_metrics(preds: List[float], actuals: List[float]) -> Dict[str, float]:
@@ -162,60 +153,74 @@ def calibration_table(preds: List[float], actuals: List[float]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="V2 model training and evaluation")
-    parser.add_argument("--compare", action="store_true", help="Side-by-side v1 vs v2")
+    parser = argparse.ArgumentParser(description="V3 model training and evaluation")
+    parser.add_argument("--compare", action="store_true", help="Side-by-side v1 vs v3")
     args = parser.parse_args()
 
-    logger.info("Building feature dataset…")
+    logger.info("Building V3 feature dataset…")
     df = build_feature_dataset()
     if df.empty:
-        logger.error("No data")
+        logger.error("No feature data")
         return
 
-    logger.info("Running walk-forward evaluation…")
-    v2_preds, v1_preds, actuals = walk_forward_evaluate(df)
+    logger.info("Building draft features…")
+    draft_df = build_draft_features()
+    if not draft_df.empty:
+        df = df.merge(draft_df, on="gameid", how="left")
+        logger.info(f"Merged draft features → {len(df.columns)} total columns")
 
-    v2_m = compute_metrics(v2_preds, actuals)
+    logger.info("Running walk-forward evaluation…")
+    v3_preds, v1_preds, actuals = walk_forward_evaluate(df)
+
+    v3_m = compute_metrics(v3_preds, actuals)
     v1_m = compute_metrics(v1_preds, actuals)
 
+    feature_cols = get_feature_cols(df)
+
     print(f"\n{'='*65}")
-    print(f"  V1 (ELO) vs V2 (Gradient Boosting) — Walk-Forward Results")
+    print(f"  V1 (ELO) vs V3 (GBM + {len(feature_cols)} features) — Walk-Forward")
     print(f"{'='*65}")
-    print(f"  Test matches: {v2_m['n']}")
+    print(f"  Test matches: {v3_m['n']}")
     print()
-    print(f"  {'Metric':20} {'V1 ELO':>10} {'V2 GBM':>10} {'Change':>10}")
+    print(f"  {'Metric':20} {'V1 ELO':>10} {'V3 GBM':>10} {'Change':>10}")
     print(f"  {'-'*52}")
-    print(f"  {'Accuracy':20} {v1_m['accuracy']:10.1%} {v2_m['accuracy']:10.1%} {(v2_m['accuracy']-v1_m['accuracy'])*100:+10.1f}pp")
-    print(f"  {'Brier Score':20} {v1_m['brier']:10.4f} {v2_m['brier']:10.4f} {v2_m['brier']-v1_m['brier']:+10.4f}")
-    print(f"  {'Log Loss':20} {v1_m['log_loss']:10.4f} {v2_m['log_loss']:10.4f} {v2_m['log_loss']-v1_m['log_loss']:+10.4f}")
+    print(f"  {'Accuracy':20} {v1_m['accuracy']:10.1%} {v3_m['accuracy']:10.1%} {(v3_m['accuracy']-v1_m['accuracy'])*100:+10.1f}pp")
+    print(f"  {'Brier Score':20} {v1_m['brier']:10.4f} {v3_m['brier']:10.4f} {v3_m['brier']-v1_m['brier']:+10.4f}")
+    print(f"  {'Log Loss':20} {v1_m['log_loss']:10.4f} {v3_m['log_loss']:10.4f} {v3_m['log_loss']-v1_m['log_loss']:+10.4f}")
 
     if args.compare:
-        print(f"\n  V2 Calibration:")
-        calibration_table(v2_preds, actuals)
+        print(f"\n  V3 Calibration:")
+        calibration_table(v3_preds, actuals)
         print(f"\n  V1 Calibration:")
         calibration_table(v1_preds, actuals)
 
     # Train final model on all data and save
-    logger.info("Training final v2 model on all data…")
-    X = np.nan_to_num(df[FEATURE_COLS].values, nan=0.0)
+    logger.info("Training final V3 model on all data…")
+    X = np.nan_to_num(df[feature_cols].values, nan=0.0)
     y = df["result"].values
     final_model = HistGradientBoostingClassifier(
-        max_iter=200, max_depth=4, learning_rate=0.05,
-        min_samples_leaf=20, random_state=42,
+        max_iter=200, max_depth=3, learning_rate=0.05,
+        min_samples_leaf=30, l2_regularization=1.0,
+        max_features=0.5, random_state=42,
     )
     final_model.fit(X, y)
 
     with open(MODEL_PATH, "wb") as f:
-        pickle.dump(final_model, f)
-    logger.info(f"V2 model saved → {MODEL_PATH}")
+        pickle.dump({"model": final_model, "feature_cols": feature_cols}, f)
+    logger.info(f"V3 model saved → {MODEL_PATH}")
 
-    # Feature importances
-    importances = final_model.feature_importances_
-    sorted_idx = np.argsort(importances)[::-1]
-    print(f"\n  Top 10 features:")
-    for i in range(min(10, len(sorted_idx))):
-        idx = sorted_idx[i]
-        print(f"    {FEATURE_COLS[idx]:25} {importances[idx]:.4f}")
+    # Feature importances (HistGBM uses a different attribute name)
+    try:
+        importances = final_model.feature_importances_
+    except AttributeError:
+        importances = np.zeros(len(feature_cols))
+
+    if importances.sum() > 0:
+        sorted_idx = np.argsort(importances)[::-1]
+        print(f"\n  Top 20 features:")
+        for i in range(min(20, len(sorted_idx))):
+            idx = sorted_idx[i]
+            print(f"    {feature_cols[idx]:35} {importances[idx]:.4f}")
     print()
 
 
