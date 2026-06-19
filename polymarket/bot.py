@@ -39,6 +39,12 @@ from polymarket.paper_trader import (
     reset_portfolio,
 )
 from polymarket.scanner import MarketOpportunity, scan
+from polymarket.discord_cards import (
+    build_decision_card,
+    build_health_summary,
+    build_settlement_card,
+    check_alerts,
+)
 
 DB_PATH = _ROOT / "db" / "lol_model.db"
 
@@ -272,6 +278,11 @@ class LoLEdgeBot(discord.Client):
                 f"**Portfolio reset.** {count} trades deleted. Bankroll back to $1,000.00."
             )
 
+        @self.tree.command(name="health", description="Edge health dashboard — is the edge still working?")
+        async def cmd_health(interaction: discord.Interaction) -> None:
+            embed = build_health_summary()
+            await interaction.response.send_message(embed=embed)
+
     # -----------------------------------------------------------------------
     # Embed builder
     # -----------------------------------------------------------------------
@@ -348,10 +359,53 @@ class LoLEdgeBot(discord.Client):
                 n_recorded = record_prices(opportunities)
                 logger.info(f"  Recorded {n_recorded} price snapshots")
 
-            # Run live deployment engine (paper mode)
+            # Run live deployment engine (paper mode) + post decision cards
             try:
                 from polymarket.live_engine import run_cycle
+                import sqlite3 as _sql
+
                 cycle = run_cycle()
+
+                channel = self.get_channel(self.channel_id)
+                if channel and (cycle["bets_placed"] > 0 or cycle["suppressed"] > 0):
+                    # Post decision cards for new evaluations
+                    _conn = _sql.connect(DB_PATH, timeout=10)
+                    recent = _conn.execute(
+                        "SELECT market_id, bet_team, entry_price, final_size, edge, "
+                        "model_prob, open_implied_prob, suppressed_reason, bet_side "
+                        "FROM live_bets ORDER BY id DESC LIMIT ?",
+                        (cycle["bets_placed"] + cycle["suppressed"],),
+                    ).fetchall()
+                    for row in recent:
+                        mid, bt, ep, fs, edg, mp, oip, sr, _bs = row
+                        sig_row = _conn.execute(
+                            "SELECT team_a, team_b, league, same_region FROM live_signals WHERE market_id = ?",
+                            (mid,),
+                        ).fetchone()
+                        if not sig_row:
+                            continue
+                        ta, tb, lg, same_r = sig_row
+
+                        gates = {
+                            "Same-region": bool(same_r),
+                            "Edge > 10%": (edg or 0) >= 0.10,
+                            "Roster stable": sr != "roster_swap" if sr else True,
+                            "Liquidity": sr != "no_liquidity" if sr else True,
+                        }
+                        card = build_decision_card(
+                            market_id=mid, team_a=ta, team_b=tb, league=lg or "",
+                            model_prob=mp or 0, open_prob=oip or 0, edge=edg or 0,
+                            gates=gates, bet_placed=(sr is None and ep and ep > 0),
+                            bet_team=bt, entry_price=ep, stake=fs,
+                            suppress_reason=sr,
+                        )
+                        await channel.send(embed=card)
+                    _conn.close()
+
+                    # Check and post alerts
+                    for alert in check_alerts():
+                        await channel.send(embed=alert)
+
                 if cycle["bets_placed"] > 0:
                     logger.info(f"  Live engine: {cycle['bets_placed']} paper bets placed")
                 if cycle["resolved"] > 0:
@@ -413,21 +467,40 @@ class LoLEdgeBot(discord.Client):
             if not channel:
                 return
 
+            # Also resolve live engine bets
+            try:
+                from polymarket.live_engine import update_clv
+                update_clv()
+            except Exception:
+                pass
+
+            import sqlite3 as _sql
+            _conn = _sql.connect(DB_PATH, timeout=10)
+            clv_rows = _conn.execute("SELECT clv FROM clv_log ORDER BY id DESC LIMIT 20").fetchall()
+            won_total = _conn.execute("SELECT COUNT(*) FROM live_bets WHERE status = 'won'").fetchone()[0]
+            lost_total = _conn.execute("SELECT COUNT(*) FROM live_bets WHERE status = 'lost'").fetchone()[0]
+            _conn.close()
+            rolling_clv = sum(r[0] for r in clv_rows if r[0] is not None) / max(len(clv_rows), 1) if clv_rows else 0
+
             for t in settled:
                 won = t.status == "won"
                 pnl = t.profit_loss or 0
-                summary = get_portfolio_summary()
-                embed = discord.Embed(
-                    title=f"{'WIN' if won else 'LOSS'}: {t.bet_team}",
-                    color=discord.Color.green() if won else discord.Color.red(),
+                card = build_settlement_card(
+                    bet_team=t.bet_team,
+                    won=won,
+                    pnl=pnl,
+                    entry_price=t.entry_price,
+                    prematch_close=t.entry_price,
+                    clv=0.0,
+                    rolling_clv=rolling_clv,
+                    record_w=won_total,
+                    record_l=lost_total,
                 )
-                embed.add_field(name="P&L", value=f"${pnl:+.2f}", inline=True)
-                embed.add_field(name="Entry", value=f"{t.entry_price:.0%}", inline=True)
-                embed.add_field(name="Model", value=f"{t.model_prob:.0%}", inline=True)
-                embed.add_field(name="Bankroll", value=f"${summary.bankroll:,.2f}", inline=True)
-                embed.add_field(name="Record", value=f"{summary.wins}W / {summary.losses}L", inline=True)
-                embed.add_field(name="ROI", value=f"{summary.roi:+.1%}", inline=True)
-                await channel.send(embed=embed)
+                await channel.send(embed=card)
+
+            # Post alerts after settlements
+            for alert in check_alerts():
+                await channel.send(embed=alert)
 
         except Exception as e:
             logger.error(f"Settle loop error: {e}")
@@ -463,17 +536,17 @@ class LoLEdgeBot(discord.Client):
             self.settle_loop.start()
             logger.info("Settlement loop started (every 1 hour)")
 
-        # Send startup message
+        # Send startup message + health dashboard
         summary = get_portfolio_summary()
         channel = self.get_channel(self.channel_id)
         if channel:
             await channel.send(
-                f"**LoL T2 Edge Bot online.** Paper trading enabled.\n"
+                f"**LoL T2 Edge Bot online.** Paper trading — opening-line strategy.\n"
                 f"Bankroll: ${summary.bankroll:,.2f} | "
                 f"Record: {summary.wins}W/{summary.losses}L | "
                 f"Open: {summary.open_positions}\n"
-                f"Commands: `/scan` `/predict` `/portfolio` `/trades` `/settle` "
-                f"`/leaderboard` `/status` `/reset`"
+                f"Commands: `/health` `/predict` `/scan` `/portfolio` `/trades` "
+                f"`/settle` `/leaderboard` `/status` `/reset`"
             )
 
     async def setup_hook(self) -> None:
