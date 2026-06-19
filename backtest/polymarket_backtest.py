@@ -413,7 +413,9 @@ def main() -> None:
     print_report(summary, args.threshold)
 
     if not args.no_csv:
-        path = write_csv(trades)
+        bankroll_tag = f"_{int(args.bankroll)}" if args.bankroll != DEFAULT_BANKROLL else ""
+        out_path = _ROOT / "data" / f"backtest_trades{bankroll_tag}.csv"
+        path = write_csv(trades, out_path)
         print(f"  Trade log: {path}")
         print(f"  Import to Google Sheets: File → Import → Upload")
     print()
