@@ -348,6 +348,17 @@ class LoLEdgeBot(discord.Client):
                 n_recorded = record_prices(opportunities)
                 logger.info(f"  Recorded {n_recorded} price snapshots")
 
+            # Run live deployment engine (paper mode)
+            try:
+                from polymarket.live_engine import run_cycle
+                cycle = run_cycle()
+                if cycle["bets_placed"] > 0:
+                    logger.info(f"  Live engine: {cycle['bets_placed']} paper bets placed")
+                if cycle["resolved"] > 0:
+                    logger.info(f"  Live engine: {cycle['resolved']} bets resolved")
+            except Exception as e:
+                logger.error(f"  Live engine error: {e}")
+
             if not opportunities:
                 logger.info("  No LoL markets found")
                 return

@@ -165,3 +165,71 @@ CREATE INDEX IF NOT EXISTS idx_bm_odds_match ON bookmaker_odds(match_date, team_
 CREATE INDEX IF NOT EXISTS idx_bm_odds_source ON bookmaker_odds(source);
 CREATE INDEX IF NOT EXISTS idx_bm_odds_match_id ON bookmaker_odds(match_id);
 CREATE INDEX IF NOT EXISTS idx_aliases_source ON team_name_aliases(source, external_name);
+
+-- ===== Live Deployment Pipeline =====
+
+CREATE TABLE IF NOT EXISTS live_signals (
+    id INTEGER PRIMARY KEY,
+    market_id TEXT NOT NULL,
+    detected_ts TEXT NOT NULL,
+    detection_latency_s REAL,
+    match_start_ts TEXT,
+    start_time_confidence TEXT DEFAULT 'gamma',
+    league TEXT,
+    region TEXT,
+    same_region INTEGER,
+    team_a TEXT,
+    team_b TEXT,
+    open_implied_prob REAL,
+    model_prob REAL,
+    edge REAL,
+    spread REAL,
+    depth_est REAL,
+    UNIQUE(market_id)
+);
+
+CREATE TABLE IF NOT EXISTS roster_checks (
+    id INTEGER PRIMARY KEY,
+    market_id TEXT NOT NULL,
+    team TEXT NOT NULL,
+    roster_at_create TEXT,
+    roster_at_bet TEXT,
+    changed_after_create INTEGER DEFAULT 0,
+    action TEXT DEFAULT 'pass'
+);
+
+CREATE TABLE IF NOT EXISTS live_bets (
+    id INTEGER PRIMARY KEY,
+    market_id TEXT NOT NULL,
+    mode TEXT DEFAULT 'paper',
+    entry_ts TEXT NOT NULL,
+    entry_price REAL NOT NULL,
+    fillable_size REAL,
+    kelly_size REAL,
+    final_size REAL,
+    edge REAL,
+    model_prob REAL,
+    open_implied_prob REAL,
+    bet_side TEXT,
+    bet_team TEXT,
+    suppressed_reason TEXT,
+    status TEXT DEFAULT 'open'
+);
+
+CREATE TABLE IF NOT EXISTS clv_log (
+    id INTEGER PRIMARY KEY,
+    bet_id INTEGER REFERENCES live_bets(id),
+    market_id TEXT NOT NULL,
+    entry_price REAL,
+    prematch_close REAL,
+    resolution_outcome TEXT,
+    clv REAL,
+    beat_close INTEGER,
+    realized_pnl REAL,
+    cumulative_volume_at_bet REAL
+);
+
+CREATE INDEX IF NOT EXISTS idx_live_signals_market ON live_signals(market_id);
+CREATE INDEX IF NOT EXISTS idx_live_bets_market ON live_bets(market_id);
+CREATE INDEX IF NOT EXISTS idx_live_bets_status ON live_bets(status);
+CREATE INDEX IF NOT EXISTS idx_clv_log_bet ON clv_log(bet_id);
