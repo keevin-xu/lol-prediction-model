@@ -44,11 +44,43 @@ T2_KEYWORDS = [
 ]
 
 DEFAULT_THRESHOLD = 0.10
-DEFAULT_COST = 0.03
 DEFAULT_KELLY = 0.0625
 DEFAULT_BANKROLL_CAP = 0.02
 DEFAULT_BANKROLL = 1000.0
 MIN_TEAM_GAMES = 10
+
+# Realistic execution model
+# Opening liquidity is a small fraction of total volume — most volume
+# trades near match time, not at market creation. These estimates are
+# conservative to ensure live results don't undershoot the backtest.
+
+def estimate_opening_cost(total_volume: float) -> float:
+    """Volume-dependent spread + slippage. Thin markets cost more."""
+    if total_volume < 2000:
+        return 0.08  # 8% — very thin, wide spread, bad fills
+    elif total_volume < 5000:
+        return 0.06  # 6%
+    elif total_volume < 15000:
+        return 0.05  # 5%
+    elif total_volume < 50000:
+        return 0.04  # 4%
+    else:
+        return 0.03  # 3% — liquid enough for reasonable fills
+
+def estimate_fillable_at_open(total_volume: float) -> float:
+    """Estimate max fillable stake at open within ~2 cents of quoted price.
+    Opening hour typically has 2-5% of total volume available as resting depth.
+    Thin markets are worse — might have $10-50 on the book at open."""
+    if total_volume < 2000:
+        return min(total_volume * 0.01, 20.0)   # 1% of volume, max $20
+    elif total_volume < 5000:
+        return min(total_volume * 0.015, 50.0)   # 1.5%, max $50
+    elif total_volume < 15000:
+        return min(total_volume * 0.02, 150.0)   # 2%, max $150
+    elif total_volume < 50000:
+        return min(total_volume * 0.025, 300.0)  # 2.5%, max $300
+    else:
+        return min(total_volume * 0.03, 500.0)   # 3%, max $500
 
 
 def _make_session() -> requests.Session:
@@ -97,12 +129,11 @@ def detect_match_start(prices: List[float]) -> int:
 
 def run_backtest(
     threshold: float = DEFAULT_THRESHOLD,
-    cost: float = DEFAULT_COST,
     kelly_max: float = DEFAULT_KELLY,
     bankroll_cap: float = DEFAULT_BANKROLL_CAP,
     starting_bankroll: float = DEFAULT_BANKROLL,
 ) -> Tuple[List[Dict], Dict]:
-    """Run full backtest. Returns (trades, summary)."""
+    """Run full backtest with realistic liquidity model. Returns (trades, summary)."""
     session = _make_session()
 
     conn = sqlite3.connect(DB_PATH)
@@ -207,9 +238,15 @@ def run_backtest(
             if edge < threshold:
                 continue
 
-            entry = (open_price if bet_on_a else 1.0 - open_price) + cost
-            entry = min(entry, 0.99)
+            volume = float(m.get("volumeNum", 0) or m.get("volume", 0) or 0)
             model_p = model_a if bet_on_a else (1.0 - model_a)
+
+            # Realistic execution model
+            cost = estimate_opening_cost(volume)
+            fillable = estimate_fillable_at_open(volume)
+
+            raw_open = open_price if bet_on_a else 1.0 - open_price
+            entry = min(raw_open + cost, 0.99)
 
             # Kelly sizing
             if 0 < entry < 1:
@@ -218,8 +255,9 @@ def run_backtest(
             else:
                 kelly = 0.0
 
-            volume = float(m.get("volumeNum", 0) or m.get("volume", 0) or 0)
-            size = min(bankroll * kelly, bankroll * bankroll_cap, volume * 0.03, 700.0)
+            kelly_size = bankroll * kelly
+            cap_size = bankroll * bankroll_cap
+            size = round(min(kelly_size, cap_size, fillable), 2)
             if size < 1.0:
                 continue
 
@@ -258,7 +296,9 @@ def run_backtest(
                 "model_prob": round(model_p, 3),
                 "market_open": round(op, 3),
                 "edge": round(edge, 3),
+                "cost": round(cost, 3),
                 "entry_price": round(entry, 3),
+                "fillable_est": round(fillable, 2),
                 "stake": round(size, 2),
                 "result": "WIN" if won else "LOSS",
                 "pnl": pnl,
@@ -357,16 +397,13 @@ def main() -> None:
                         help=f"Min edge threshold (default: {DEFAULT_THRESHOLD})")
     parser.add_argument("--bankroll", type=float, default=DEFAULT_BANKROLL,
                         help=f"Starting bankroll (default: {DEFAULT_BANKROLL})")
-    parser.add_argument("--cost", type=float, default=DEFAULT_COST,
-                        help=f"Total cost per trade (default: {DEFAULT_COST})")
     parser.add_argument("--no-csv", action="store_true", help="Skip CSV output")
     args = parser.parse_args()
 
-    logger.info("Running Polymarket opening-line backtest…")
+    logger.info("Running Polymarket opening-line backtest (realistic liquidity model)…")
     trades, summary = run_backtest(
         threshold=args.threshold,
         starting_bankroll=args.bankroll,
-        cost=args.cost,
     )
 
     if "error" in summary:

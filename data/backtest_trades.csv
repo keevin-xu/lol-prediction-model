@@ -1,178 +1,178 @@
-trade_num,date,league,format,bet_team,opponent,model_prob,market_open,edge,entry_price,stake,result,pnl,bankroll_after,clv,prematch_close,beat_close,market_volume,winner
-1,2026-01-14,road of legends,bo1,ZennIT,mCon esports,0.665,0.5,0.165,0.53,20.0,WIN,17.74,1017.74,0.3,0.8,Y,13906.0,ZennIT
-2,2026-01-14,road of legends,bo1,Dynasty,Frites Esports Club,0.404,0.175,0.229,0.205,20.35,LOSS,-20.35,997.39,0.005,0.18,Y,8547.0,Frites Esports Club
-3,2026-01-14,road of legends,bo1,UniQ Esports Club,mCon esports,0.631,0.5,0.131,0.53,19.95,WIN,17.69,1015.08,0.355,0.855,Y,25401.0,Senshi Esports Club
-4,2026-01-14,road of legends,bo1,ZennIT,Frites Esports Club,0.517,0.185,0.332,0.215,20.3,LOSS,-20.3,994.78,0.025,0.21,Y,40690.0,Frites Esports Club
-5,2026-01-14,lck challengers,bo3,DN SOOPers Challengers,BNK FEARX Youth,0.655,0.55,0.105,0.58,19.9,WIN,14.41,1009.19,0.295,0.845,Y,10904.0,DN SOOPers Challengers
-6,2026-01-15,tcl,bo3,Team Phoenix,Dark Passage,0.594,0.37,0.224,0.4,20.18,LOSS,-20.18,989.01,-0.2,0.17,N,76262.0,Dark Passage
-7,2026-01-16,tcl,bo3,PCIFIC Esports,Bushido Wildcats,0.536,0.225,0.311,0.255,19.78,LOSS,-19.78,969.23,-0.07,0.155,N,45266.0,Bushido Wildcats
-8,2026-01-17,lck challengers,bo3,KT Rolster Challengers,Gen.G Global Academy,0.825,0.5,0.325,0.53,19.38,WIN,17.19,986.42,0.165,0.665,Y,328250.0,KT Rolster Challengers
-9,2026-01-17,lck challengers,bo3,Hanwha Life Esports Challengers,BNK FEARX Youth,0.43,0.28,0.15,0.31,19.73,LOSS,-19.73,966.69,-0.155,0.125,N,72979.0,BNK FearX Youth
-10,2026-01-17,nlc,bo1,Arctic Pandas,Lundqvist Lightside,0.669,0.5,0.169,0.53,19.33,WIN,17.15,983.84,0.29,0.79,Y,1199.0,Arctic Pandas
-11,2026-01-17,nlc,bo1,Verdant,DMG Esports,0.713,0.46,0.253,0.49,19.68,LOSS,-19.68,964.16,0.27,0.73,Y,32639.0,DMG Esports
-12,2026-01-17,lck challengers,bo3,Nongshim Esports Academy,KT Rolster Challengers,0.469,0.345,0.124,0.375,19.28,LOSS,-19.28,944.88,0.55,0.895,Y,67247.0,KT Rolster Challengers
-13,2026-01-17,lck challengers,bo3,Dplus Kia Challengers,BNK FEARX Youth,0.653,0.35,0.303,0.38,18.9,LOSS,-18.9,925.98,0.26,0.61,Y,44594.0,BNK FearX Youth
-14,2026-01-17,lfl,bo1,Esprit Shōnen,Lille Esport,0.522,0.29,0.232,0.32,18.52,WIN,39.35,965.33,0.03,0.32,Y,18790.0,Esprit Shōnen
-15,2026-01-17,lfl,bo1,TLN Pirates,Ici Japon Corp. Esport,0.61,0.38,0.23,0.41,19.31,WIN,27.78,993.11,0.415,0.795,Y,8265.0,TLN Pirates
-16,2026-01-19,road of legends,bo3,ZennIT,Frites Esports Club,0.54,0.155,0.385,0.185,19.86,LOSS,-19.86,973.25,-0.045,0.11,N,49708.0,Frites Esports Club
-17,2026-01-19,road of legends,bo3,Myth Esports,Once Upon A Team,0.683,0.38,0.303,0.41,19.46,WIN,28.01,1001.26,0.49,0.87,Y,3008.0,Myth Esports
-18,2026-01-23,tcl,bo3,Team Phoenix,Bushido Wildcats,0.395,0.22,0.175,0.25,20.03,LOSS,-20.03,981.23,-0.115,0.105,N,20012.0,Bushido Wildcats
-19,2026-01-23,tcl,bo3,BoostGate Esports,SU Esports,0.402,0.22,0.182,0.25,19.62,LOSS,-19.62,961.61,0.125,0.345,Y,3184.0,SU Esports
-20,2026-01-23,tcl,bo3,PCIFIC Esports,Dark Passage,0.722,0.24,0.482,0.27,19.23,LOSS,-19.23,942.38,0.53,0.77,Y,43562.0,Dark Passage
-21,2026-01-24,lfl,bo1,TLN Pirates,Joblife,0.652,0.41,0.242,0.44,18.85,WIN,23.99,966.37,-0.185,0.225,N,25194.0,TLN Pirates
-22,2026-01-24,road of legends,bo3,UniQ Esports Club,Frites Esports Club,0.526,0.195,0.331,0.225,19.33,LOSS,-19.33,947.04,-0.08,0.115,N,69386.0,Frites Esports Club
-23,2026-01-29,hitpoint,bo3,eSuba,Nightbirds,0.492,0.24,0.252,0.27,18.94,LOSS,-18.94,928.1,0.22,0.46,Y,9701.0,NightBirds
-24,2026-01-31,road of legends,bo3,ZennIT,UniQ Esports Club,0.526,0.25,0.276,0.28,18.56,LOSS,-18.56,909.54,0.245,0.495,Y,5018.0,Senshi Esports Club
-25,2026-01-31,road of legends,bo3,Dynasty,Once Upon A Team,0.568,0.32,0.248,0.35,18.19,WIN,33.78,943.32,0.27,0.59,Y,18357.0,Dynasty
-26,2026-01-31,road of legends,bo3,Myth Esports,mCon esports,0.652,0.32,0.332,0.35,18.87,LOSS,-18.87,924.45,0.095,0.415,Y,11171.0,mCon esports
-27,2026-02-01,lfl,bo1,Galions,TLN Pirates,0.825,0.47,0.355,0.5,18.49,WIN,18.49,942.94,0.23,0.7,Y,29985.0,Galions
-28,2026-02-01,lfl,bo1,French Flair,Lille Esport,0.705,0.5,0.205,0.53,18.86,LOSS,-18.86,924.08,0.16,0.66,Y,76597.0,Lille Esport
-29,2026-02-01,lfl,bo1,Vitality.Bee,Joblife,0.623,0.5,0.123,0.53,18.48,LOSS,-18.48,905.6,-0.385,0.115,N,27843.0,Joblife
-30,2026-02-01,lfl,bo1,French Flair,TLN Pirates,0.618,0.5,0.118,0.53,18.11,WIN,16.06,921.66,0.225,0.725,Y,22067.0,French Flair
-31,2026-02-01,lfl,bo1,Solary,Vitality.Bee,0.82,0.51,0.31,0.54,18.43,WIN,15.7,937.36,0.245,0.755,Y,22576.0,Solary
-32,2026-02-01,lfl,bo1,Galions,ZYB Esport,0.875,0.5,0.375,0.53,18.75,WIN,16.62,953.98,0.38,0.88,Y,48208.0,Galions
-33,2026-02-01,lfl,bo1,BK ROG Esports,Joblife,0.624,0.5,0.124,0.53,19.08,LOSS,-19.08,934.9,-0.375,0.125,N,14047.0,Joblife
-34,2026-02-01,lfl,bo1,Solary,BK ROG Esports,0.833,0.5,0.333,0.53,18.7,WIN,16.58,951.48,0.16,0.66,Y,34150.0,Solary
-35,2026-02-01,lfl,bo1,Galions,Joblife,0.902,0.5,0.402,0.53,19.03,WIN,16.88,968.36,0.29,0.79,Y,84314.0,Galions
-36,2026-02-01,lfl,bo1,TLN Pirates,ZYB Esport,0.609,0.5,0.109,0.53,19.37,WIN,17.17,985.53,0.35,0.85,Y,52768.0,TLN Pirates
-37,2026-02-01,tcl,bo3,PCIFIC Esports,Team Phoenix,0.629,0.43,0.199,0.46,19.71,WIN,23.14,1008.67,0.43,0.86,Y,13666.0,PCIFIC
-38,2026-02-01,tcl,bo3,Bushido Wildcats,Dark Passage,0.701,0.5,0.201,0.53,20.17,WIN,17.89,1026.56,0.35,0.85,Y,48776.0,Bushido Wildcats
-39,2026-02-01,nlc,bo1,Bulldog Esports,Arctic Pandas,0.391,0.26,0.131,0.29,20.53,WIN,50.27,1076.83,0.255,0.515,Y,13496.0,Bulldog Esports
-40,2026-02-05,lck challengers,bo5,Nongshim Esports Academy,Hanwha Life Esports Challengers,0.667,0.5,0.167,0.53,21.54,WIN,19.1,1095.93,0.385,0.885,Y,417785.0,Nongshim Esports Academy
-41,2026-02-08,tcl,bo3,SU Esports,Dark Passage,0.707,0.42,0.287,0.45,21.92,WIN,26.79,1122.72,0.36,0.78,Y,96430.0,SU Esports
-42,2026-02-08,tcl,bo3,PCIFIC Esports,S2G Esports,0.438,0.235,0.203,0.265,22.45,LOSS,-22.45,1100.27,-0.13,0.105,N,42415.0,S2G Esports
-43,2026-02-08,road of legends,bo5,ZennIT,mCon esports,0.665,0.5,0.165,0.53,22.01,WIN,19.51,1119.78,0.385,0.885,Y,18626.0,ZennIT
-44,2026-02-09,lfl,bo1,TLN Pirates,Joblife,0.672,0.505,0.167,0.535,22.4,LOSS,-22.4,1097.38,-0.295,0.21,N,24734.0,Joblife
-45,2026-02-09,lfl,bo1,French Flair,ZYB Esport,0.688,0.495,0.193,0.525,21.95,WIN,19.86,1117.24,0.34,0.835,Y,89909.0,French Flair
-46,2026-02-09,lfl,bo1,Solary,TLN Pirates,0.787,0.49,0.297,0.52,22.34,WIN,20.63,1137.87,0.22,0.71,Y,22121.0,Solary
-47,2026-02-09,lfl,bo1,Galions,Lille Esport,0.865,0.49,0.375,0.52,22.76,WIN,21.01,1158.88,0.37,0.86,Y,24206.0,Galions
-48,2026-02-09,lfl,bo1,French Flair,Vitality.Bee,0.626,0.5,0.126,0.53,23.18,WIN,20.55,1179.43,0.0,0.5,N,24696.0,French Flair
-49,2026-02-09,tcl,bo3,Misa Esports,SU Esports,0.803,0.505,0.298,0.535,23.59,WIN,20.5,1199.93,0.38,0.885,Y,22547.0,Misa Esports
-50,2026-02-09,tcl,bo3,S2G Esports,Bushido Wildcats,0.586,0.425,0.161,0.455,24.0,WIN,28.75,1228.68,0.435,0.86,Y,62245.0,S2G Esports
-51,2026-02-10,prime league,bo1,Eintracht Spandau,G2 NORD,0.641,0.5,0.141,0.53,24.57,WIN,21.79,1250.47,-0.155,0.345,N,45353.0,Eintracht Spandau
-52,2026-02-10,prime league,bo1,Berlin International Gaming,E WIE EINFACH E-SPORTS,0.702,0.505,0.197,0.535,25.01,WIN,21.74,1272.21,0.325,0.83,Y,38209.0,Berlin International Gaming
-53,2026-02-11,tcl,bo5,Bushido Wildcats,Dark Passage,0.682,0.5,0.182,0.53,25.44,WIN,22.56,1294.77,0.395,0.895,Y,26246.0,Bushido Wildcats
-54,2026-02-11,lfl,bo1,Solary,ZYB Esport,0.846,0.5,0.346,0.53,25.9,WIN,22.96,1317.73,0.36,0.86,Y,28695.0,Solary
-55,2026-02-11,lfl,bo1,French Flair,Joblife,0.76,0.53,0.23,0.56,26.35,LOSS,-26.35,1291.38,-0.19,0.34,N,31515.0,Joblife
-56,2026-02-12,lfl,bo1,Galions,Vitality.Bee,0.83,0.51,0.32,0.54,25.83,LOSS,-25.83,1265.55,-0.32,0.19,N,58948.0,Vitality.Bee
-57,2026-02-12,lfl,bo1,Solary,Joblife,0.878,0.5,0.378,0.53,25.31,WIN,22.45,1288.0,0.29,0.79,Y,23510.0,Solary
-58,2026-02-12,lfl,bo1,French Flair,BK ROG Esports,0.667,0.5,0.167,0.53,25.76,WIN,22.84,1310.84,0.385,0.885,Y,85468.0,French Flair
-59,2026-02-13,tcl,bo5,Misa Esports,S2G Esports,0.756,0.505,0.251,0.535,26.22,WIN,22.79,1333.63,0.365,0.87,Y,44604.0,Misa Esports
-60,2026-02-14,lfl,bo1,Galions,BK ROG Esports,0.842,0.5,0.342,0.53,26.67,WIN,23.65,1357.28,0.19,0.69,Y,115646.0,Galions
-61,2026-02-14,lfl,bo1,Vitality.Bee,TLN Pirates,0.458,0.26,0.198,0.29,27.15,LOSS,-27.15,1330.13,0.12,0.38,Y,98949.0,TLN Pirates
-62,2026-02-14,lfl,bo1,Solary,French Flair,0.723,0.5,0.223,0.53,26.6,LOSS,-26.6,1303.53,0.23,0.73,Y,131964.0,French Flair
-63,2026-02-18,nlc,bo1,Verdant,Lundqvist Lightside,0.76,0.5,0.26,0.53,5.7,WIN,5.06,1308.59,-0.01,0.49,N,190.0,Verdant
-64,2026-02-18,lfl,bo1,Solary,Lille Esport,0.857,0.48,0.377,0.51,26.17,WIN,25.15,1333.74,0.39,0.87,Y,37437.0,Solary
-65,2026-02-18,lfl,bo1,Galions,French Flair,0.753,0.495,0.258,0.525,26.67,LOSS,-26.67,1307.07,-0.06,0.435,N,82557.0,French Flair
-66,2026-02-18,prime league,bo1,Unicorns of Love Sexy Edition,E WIE EINFACH E-SPORTS,0.639,0.5,0.139,0.53,26.14,WIN,23.18,1330.25,0.175,0.675,Y,15584.0,Unicorns Of Love Sexy Edition
-67,2026-02-19,lfl,bo1,French Flair,Joblife,0.743,0.5,0.243,0.53,26.61,WIN,23.59,1353.84,0.2,0.7,Y,131645.0,French Flair
-68,2026-02-19,lfl,bo1,Galions,French Flair,0.753,0.5,0.253,0.53,27.08,WIN,24.01,1377.85,0.19,0.69,Y,54104.0,Galions
-69,2026-02-19,lfl,bo1,Galions,Joblife,0.902,0.5,0.402,0.53,27.56,WIN,24.44,1402.29,0.12,0.62,Y,23795.0,Galions
-70,2026-02-21,ljl,bo1,Inferno Drive Tokyo,DetonatioN FocusMe Academy,0.637,0.5,0.137,0.53,28.05,WIN,24.87,1427.16,0.39,0.89,Y,8272.0,Inferno Drive Tokyo
-71,2026-02-21,ljl,bo1,FENNEL,Yang Yang Gaming,0.751,0.5,0.251,0.53,28.54,WIN,25.31,1452.47,0.335,0.835,Y,38732.0,FENNEL
-72,2026-02-21,ljl,bo1,Uwinks,Yang Yang Gaming,0.641,0.5,0.141,0.53,29.05,WIN,25.76,1478.23,0.095,0.595,Y,10279.0,Uwinks
-73,2026-02-21,ljl,bo1,New Meta,DetonatioN FocusMe Academy,0.621,0.5,0.121,0.53,8.68,WIN,7.7,1485.93,0.0,0.5,N,289.0,New Meta
-74,2026-02-21,ljl,bo1,Inferno Drive Tokyo,Fast8,0.652,0.5,0.152,0.53,14.49,WIN,12.85,1498.78,0.385,0.885,Y,483.0,Inferno Drive Tokyo
-75,2026-02-21,ljl,bo1,Rising Gaming,NOVEX,0.712,0.505,0.207,0.535,29.98,LOSS,-29.98,1468.8,0.045,0.55,Y,18560.0,NOVEX
-76,2026-02-22,prime league,bo3,Eintracht Spandau,E WIE EINFACH E-SPORTS,0.647,0.505,0.142,0.535,29.38,WIN,25.53,1494.33,0.39,0.895,Y,88450.0,Eintracht Spandau
-77,2026-02-22,tcl,bo5,S2G Esports,Bushido Wildcats,0.608,0.495,0.113,0.525,29.89,WIN,27.04,1521.37,0.36,0.855,Y,100850.0,S2G Esports
-78,2026-02-23,ljl,bo1,VARREL YOUTH,Fast8,0.617,0.375,0.242,0.405,29.85,WIN,43.86,1565.23,0.505,0.88,Y,995.0,VARREL YOUTH
-79,2026-02-23,ljl,bo1,FENNEL,Uwinks,0.638,0.48,0.158,0.51,31.3,WIN,30.08,1595.31,0.0,0.48,N,2074.0,FENNEL
-80,2026-02-23,ljl,bo1,L Guide Gaming,DetonatioN FocusMe Academy,0.531,0.315,0.216,0.345,31.91,LOSS,-31.91,1563.4,-0.17,0.145,N,2610.0,DetonatioN FocusMe Academy
-81,2026-02-23,nlc,bo1,Deer Gaming,Lundqvist Lightside,0.628,0.5,0.128,0.53,31.27,WIN,27.73,1591.13,0.12,0.62,Y,32466.0,Deer Gaming
-82,2026-02-23,nlc,bo1,Arctic Pandas,DMG Esports,0.613,0.5,0.113,0.53,31.82,WIN,28.22,1619.35,0.1,0.6,Y,36559.0,Arctic Pandas
-83,2026-02-23,nlc,bo1,Verdant,Bulldog Esports,0.728,0.51,0.218,0.54,32.39,WIN,27.59,1646.94,0.32,0.83,Y,126015.0,Verdant
-84,2026-02-23,lfl,bo5,TLN Pirates,Joblife,0.652,0.5,0.152,0.53,32.94,WIN,29.21,1676.15,-0.395,0.105,N,243545.0,TLN Pirates
-85,2026-02-27,prime league,bo5,Unicorns of Love Sexy Edition,G2 NORD,0.674,0.265,0.409,0.295,33.52,LOSS,-33.52,1642.63,-0.15,0.115,N,116206.0,G2 NORD
-86,2026-03-01,ljl,bo1,FENNEL,NOVEX,0.72,0.5,0.22,0.53,32.85,WIN,29.13,1671.76,0.32,0.82,Y,1761.0,FENNEL
-87,2026-03-01,ljl,bo1,New Meta,Fast8,0.636,0.5,0.136,0.53,27.29,WIN,24.2,1695.96,0.235,0.735,Y,910.0,New Meta
-88,2026-03-01,ljl,bo1,Rising Gaming,Uwinks,0.629,0.5,0.129,0.53,33.92,WIN,30.08,1726.04,0.31,0.81,Y,43967.0,Rising Gaming
-89,2026-03-01,ljl,bo1,Inferno Drive Tokyo,L Guide Gaming,0.619,0.5,0.119,0.53,34.52,LOSS,-34.52,1691.52,0.02,0.52,Y,26354.0,L Guide Gaming
-90,2026-03-02,ljl,bo1,Yang Yang Gaming,NOVEX,0.449,0.17,0.279,0.2,33.83,WIN,135.32,1826.84,-0.03,0.14,N,24573.0,Yang Yang Gaming
-91,2026-03-13,emea masters,bo3,Arctic Pandas,Nightbirds,0.587,0.365,0.222,0.395,36.54,WIN,55.96,1882.8,0.48,0.845,Y,71847.0,Arctic Pandas
-92,2026-03-26,lck challengers,bo3,DN SOOPers Challengers,KT Rolster Challengers,0.514,0.25,0.265,0.28,37.66,LOSS,-37.66,1845.14,-0.09,0.16,N,88074.0,KT Rolster Challengers
-93,2026-03-26,lck challengers,bo3,Dplus Kia Challengers,Gen.G Global Academy,0.85,0.5,0.35,0.53,36.9,WIN,32.73,1877.87,0.37,0.87,Y,79002.0,Dplus KIA Challengers
-94,2026-03-26,lck challengers,bo3,Kiwoom DRX Challengers,KT Rolster Challengers,0.466,0.245,0.221,0.275,37.56,WIN,99.01,1976.88,0.405,0.65,Y,72869.0,Kiwoom DRX Challengers
-95,2026-03-26,lck challengers,bo3,Gen.G Global Academy,HANJIN BRION Challengers,0.426,0.245,0.181,0.275,39.54,LOSS,-39.54,1937.34,0.05,0.295,Y,174151.0,HANJIN BRION Challengers
-96,2026-03-26,lck challengers,bo3,Nongshim Esports Academy,BNK FEARX Youth,0.613,0.5,0.113,0.53,38.75,WIN,34.36,1971.7,0.38,0.88,Y,7675.0,Nongshim Esports Academy
-97,2026-03-30,prime league,bo1,Eintracht Spandau,G2 NORD,0.641,0.5,0.141,0.53,39.43,WIN,34.97,2006.67,-0.215,0.285,N,97362.0,Eintracht Spandau
-98,2026-03-31,road of legends,bo3,ZennIT,mCon esports,0.644,0.255,0.389,0.285,40.13,LOSS,-40.13,1966.54,0.415,0.67,Y,11883.0,mCon esports
-99,2026-04-03,lck challengers,bo3,BNK FEARX Youth,Gen.G Global Academy,0.742,0.5,0.242,0.53,39.33,WIN,34.88,2001.42,0.19,0.69,Y,318686.0,BNK FearX Youth
-100,2026-04-03,lck challengers,bo3,DN SOOPers Challengers,HANJIN BRION Challengers,0.787,0.5,0.287,0.53,40.03,WIN,35.5,2036.92,0.345,0.845,Y,1024695.0,DN SOOPers Challengers
-101,2026-04-04,lck challengers,bo3,Kiwoom DRX Challengers,Hanwha Life Esports Challengers,0.644,0.5,0.144,0.53,40.74,WIN,36.13,2073.05,0.28,0.78,Y,204422.0,Kiwoom DRX Challengers
-102,2026-04-04,prime league,bo1,Unicorns of Love Sexy Edition,G2 NORD,0.654,0.5,0.154,0.53,41.46,WIN,36.77,2109.82,-0.14,0.36,N,136469.0,Unicorns Of Love Sexy Edition
-103,2026-04-04,lck challengers,bo3,DN SOOPers Challengers,BNK FEARX Youth,0.675,0.5,0.175,0.53,42.2,WIN,37.42,2147.24,0.39,0.89,Y,97222.0,DN SOOPers Challengers
-104,2026-04-04,lck challengers,bo3,Dplus Kia Challengers,HANJIN BRION Challengers,0.8,0.5,0.3,0.53,42.94,WIN,38.08,2185.32,0.26,0.76,Y,125421.0,Dplus KIA Challengers
-105,2026-04-04,lck challengers,bo3,KT Rolster Challengers,Hanwha Life Esports Challengers,0.704,0.5,0.204,0.53,43.71,LOSS,-43.71,2141.61,-0.28,0.22,N,116249.0,Hanwha Life Esports Challengers
-106,2026-04-07,tcl,bo3,PCIFIC Esports,BoostGate Esports,0.636,0.505,0.131,0.535,42.83,WIN,37.23,2178.84,0.24,0.745,Y,32922.0,PCIFIC
-107,2026-04-07,tcl,bo3,Misa Esports,Ozarox Esports,0.862,0.575,0.287,0.605,43.58,WIN,28.45,2207.29,0.31,0.885,Y,19992.0,Misa Esports
-108,2026-04-07,tcl,bo3,Team Phoenix,Bushido Wildcats,0.395,0.19,0.205,0.22,44.15,LOSS,-44.15,2163.14,-0.085,0.105,N,31435.0,Bushido Wildcats
-109,2026-04-07,lfl,bo1,Solary,TLN Pirates,0.787,0.5,0.287,0.53,43.26,WIN,38.37,2201.51,0.065,0.565,Y,68735.0,Solary
-110,2026-04-07,lfl,bo1,Karmine Corp Blue,Joblife,0.741,0.5,0.241,0.53,44.03,WIN,39.05,2240.56,0.12,0.62,Y,27437.0,Karmine Corp Blue
-111,2026-04-07,lfl,bo1,Galions,Ici Japon Corp. Esport,0.876,0.5,0.376,0.53,44.81,LOSS,-44.81,2195.75,0.01,0.51,Y,127936.0,Ici Japon Corp. Esport
-112,2026-04-07,lfl,bo1,TLN Pirates,Ici Japon Corp. Esport,0.61,0.5,0.11,0.53,43.91,WIN,38.94,2234.69,0.375,0.875,Y,47313.0,TLN Pirates
-113,2026-04-07,lfl,bo1,Karmine Corp Blue,Esprit Shōnen,0.674,0.5,0.174,0.53,44.69,WIN,39.63,2274.32,0.235,0.735,Y,81114.0,Karmine Corp Blue
-114,2026-04-07,lfl,bo1,Solary,Joblife,0.878,0.5,0.378,0.53,45.49,WIN,40.34,2314.66,0.255,0.755,Y,50582.0,Solary
-115,2026-04-07,lfl,bo1,Galions,Vitality.Bee,0.83,0.5,0.33,0.53,46.29,LOSS,-46.29,2268.37,0.095,0.595,Y,236240.0,Vitality.Bee
-116,2026-04-10,lck challengers,bo3,Kiwoom DRX Challengers,Gen.G Global Academy,0.797,0.5,0.297,0.53,45.37,LOSS,-45.37,2223.0,-0.24,0.26,N,252860.0,Gen.G Global Academy
-117,2026-04-10,lck challengers,bo3,KT Rolster Challengers,HANJIN BRION Challengers,0.769,0.495,0.274,0.525,44.46,WIN,40.23,2263.23,0.39,0.885,Y,128457.0,KT Rolster Challengers
-118,2026-04-10,lck challengers,bo3,Nongshim Esports Academy,Hanwha Life Esports Challengers,0.667,0.505,0.162,0.535,45.26,LOSS,-45.26,2217.97,-0.12,0.385,N,57664.0,Hanwha Life Esports Challengers
-119,2026-04-10,lck challengers,bo3,Dplus Kia Challengers,BNK FEARX Youth,0.653,0.5,0.153,0.53,44.36,WIN,39.34,2257.31,-0.08,0.42,N,332490.0,Dplus KIA Challengers
-120,2026-04-10,lck challengers,bo3,Hanwha Life Esports Challengers,Gen.G Global Academy,0.694,0.505,0.189,0.535,45.15,LOSS,-45.15,2212.16,-0.25,0.255,N,93541.0,Gen.G Global Academy
-121,2026-04-10,lck challengers,bo3,BNK FEARX Youth,HANJIN BRION Challengers,0.65,0.495,0.155,0.525,44.24,WIN,40.03,2252.19,0.14,0.635,Y,82007.0,BNK FearX Youth
-122,2026-04-12,road of legends,bo3,Myth Esports,Dynasty,0.631,0.505,0.126,0.535,45.04,LOSS,-45.04,2207.15,-0.235,0.27,N,37820.0,Dynasty
-123,2026-04-12,road of legends,bo3,UniQ Esports Club,mCon esports,0.652,0.5,0.152,0.53,44.14,WIN,39.15,2246.3,0.33,0.83,Y,9179.0,Senshi Esports Club
-124,2026-04-12,prime league,bo1,Eintracht Spandau,E WIE EINFACH E-SPORTS,0.647,0.5,0.147,0.53,44.93,LOSS,-44.93,2201.37,-0.285,0.215,N,58718.0,E WIE EINFACH E-SPORTS
-125,2026-04-13,tcl,bo3,Misa Esports,Team Phoenix,0.87,0.505,0.365,0.535,44.03,WIN,38.27,2239.64,0.0,0.505,N,15722.0,Misa Esports
-126,2026-04-13,tcl,bo3,BoostGate Esports,Dark Passage,0.608,0.495,0.113,0.525,44.79,WIN,40.53,2280.17,0.34,0.835,Y,23872.0,BoostGate Esports
-127,2026-04-13,tcl,bo3,PCIFIC Esports,Ozarox Esports,0.633,0.5,0.133,0.53,45.6,LOSS,-45.6,2234.57,-0.33,0.17,N,45037.0,Ozarox Esports
-128,2026-04-13,lfl,bo1,Solary,Karmine Corp Blue,0.707,0.5,0.207,0.53,44.69,WIN,39.63,2274.2,0.325,0.825,Y,148689.0,Solary
-129,2026-04-13,lfl,bo1,Vitality.Bee,Joblife,0.644,0.5,0.144,0.53,45.48,WIN,40.33,2314.53,0.195,0.695,Y,79751.0,Vitality.Bee
-130,2026-04-13,lfl,bo1,Galions,TLN Pirates,0.825,0.5,0.325,0.53,46.29,LOSS,-46.29,2268.24,0.105,0.605,Y,98354.0,TLN Pirates
-131,2026-04-13,lfl,bo1,Karmine Corp Blue,Ici Japon Corp. Esport,0.723,0.5,0.223,0.53,45.36,LOSS,-45.36,2222.88,-0.39,0.11,N,117292.0,Ici Japon Corp. Esport
-132,2026-04-15,prime league,bo1,Unicorns of Love Sexy Edition,E WIE EINFACH E-SPORTS,0.639,0.5,0.139,0.53,44.46,LOSS,-44.46,2178.42,-0.195,0.305,N,45039.0,E WIE EINFACH E-SPORTS
-133,2026-04-16,lck challengers,bo3,Nongshim Esports Academy,Gen.G Global Academy,0.798,0.5,0.298,0.53,43.57,WIN,38.64,2217.06,0.39,0.89,Y,271828.0,Nongshim Esports Academy
-134,2026-04-16,lck challengers,bo3,KT Rolster Challengers,BNK FEARX Youth,0.631,0.5,0.132,0.53,44.34,WIN,39.32,2256.38,0.035,0.535,Y,269830.0,KT Rolster Challengers
-135,2026-04-16,lck challengers,bo3,DN SOOPers Challengers,Hanwha Life Esports Challengers,0.706,0.5,0.206,0.53,45.13,WIN,40.02,2296.4,0.235,0.735,Y,493389.0,DN SOOPers Challengers
-136,2026-04-16,lck challengers,bo3,Kiwoom DRX Challengers,HANJIN BRION Challengers,0.752,0.5,0.252,0.53,45.93,WIN,40.73,2337.13,0.395,0.895,Y,72809.0,Kiwoom DRX Challengers
-137,2026-04-16,lck challengers,bo3,Dplus Kia Challengers,Hanwha Life Esports Challengers,0.705,0.495,0.21,0.525,46.74,WIN,42.29,2379.42,0.355,0.85,Y,242159.0,Dplus KIA Challengers
-138,2026-04-16,lck challengers,bo3,KT Rolster Challengers,Gen.G Global Academy,0.837,0.505,0.332,0.535,47.59,WIN,41.36,2420.78,0.375,0.88,Y,70196.0,KT Rolster Challengers
-139,2026-04-18,tcl,bo3,PCIFIC Esports,Team Phoenix,0.649,0.505,0.144,0.535,48.42,WIN,42.08,2462.86,0.22,0.725,Y,15721.0,PCIFIC
-140,2026-04-19,tcl,bo3,Ozarox Esports,Dark Passage,0.611,0.49,0.121,0.52,49.26,WIN,45.47,2508.33,0.385,0.875,Y,11490.0,Ozarox Esports
-141,2026-04-19,prime league,bo3,Eintracht Spandau,G2 NORD,0.662,0.5,0.162,0.53,50.17,WIN,44.49,2552.82,0.205,0.705,Y,32506.0,Eintracht Spandau
-142,2026-04-20,lfl,bo1,Solary,Ici Japon Corp. Esport,0.868,0.5,0.368,0.53,51.06,WIN,45.28,2598.1,0.255,0.755,Y,109762.0,Solary
-143,2026-04-20,lfl,bo1,Galions,Joblife,0.902,0.5,0.402,0.53,51.96,WIN,46.08,2644.18,0.25,0.75,Y,59506.0,Galions
-144,2026-04-20,lfl,bo1,Karmine Corp Blue,Vitality.Bee,0.644,0.5,0.144,0.53,52.88,WIN,46.9,2691.08,-0.095,0.405,N,194849.0,Karmine Corp Blue
-145,2026-04-20,road of legends,bo3,Once Upon A Team,mCon esports,0.477,0.195,0.282,0.225,53.82,WIN,185.39,2876.47,-0.02,0.175,N,40875.0,Once Upon A Team
-146,2026-04-20,road of legends,bo3,Dynasty,Frites Esports Club,0.382,0.265,0.117,0.295,57.53,LOSS,-57.53,2818.94,0.015,0.28,Y,13284.0,Frites Esports Club
-147,2026-04-21,lfl,bo1,TLN Pirates,Joblife,0.672,0.5,0.172,0.53,56.38,WIN,50.0,2868.94,0.385,0.885,Y,49500.0,TLN Pirates
-148,2026-04-21,lfl,bo1,Solary,Vitality.Bee,0.82,0.5,0.32,0.53,57.38,WIN,50.88,2919.82,0.285,0.785,Y,111224.0,Solary
-149,2026-04-21,lfl,bo1,Galions,Esprit Shōnen,0.87,0.5,0.37,0.53,58.4,WIN,51.79,2971.61,0.375,0.875,Y,89256.0,Galions
-150,2026-04-21,lfl,bo1,Karmine Corp Blue,ZYB Esport,0.704,0.5,0.204,0.53,59.43,WIN,52.7,3024.31,0.175,0.675,Y,74121.0,Karmine Corp Blue
-151,2026-04-23,tcl,bo3,Misa Esports,SU Esports,0.803,0.5,0.303,0.53,60.49,WIN,53.64,3077.95,0.355,0.855,Y,6950.0,Misa Esports
-152,2026-04-24,lck challengers,bo3,DN SOOPers Challengers,Gen.G Global Academy,0.851,0.74,0.111,0.77,61.56,WIN,18.39,3096.34,0.115,0.855,Y,222295.0,DN SOOPers Challengers
-153,2026-04-24,lck challengers,bo3,Dplus Kia Challengers,Gen.G Global Academy,0.838,0.61,0.228,0.64,61.93,WIN,34.83,3131.17,0.185,0.795,Y,115492.0,Dplus KIA Challengers
-154,2026-04-24,prime league,bo3,E WIE EINFACH E-SPORTS,G2 NORD,0.505,0.36,0.145,0.39,62.62,LOSS,-62.62,3068.55,-0.185,0.175,N,295540.0,G2 NORD
-155,2026-04-24,tcl,bo3,Misa Esports,BoostGate Esports,0.864,0.735,0.129,0.765,61.37,WIN,18.85,3087.4,0.13,0.865,Y,51868.0,Misa Esports
-156,2026-04-24,lfl,bo1,Galions,Karmine Corp Blue,0.756,0.5,0.256,0.53,61.75,LOSS,-61.75,3025.65,-0.225,0.275,N,129952.0,Karmine Corp Blue
-157,2026-04-24,lfl,bo1,Solary,ZYB Esport,0.857,0.745,0.112,0.775,60.51,WIN,17.57,3043.22,0.1,0.845,Y,93214.0,Solary
-158,2026-04-25,road of legends,bo3,Myth Esports,mCon esports,0.652,0.505,0.147,0.535,60.86,WIN,52.9,3096.12,0.18,0.685,Y,30748.0,Myth Esports
-159,2026-04-28,ljl,bo3,Uwinks,DetonatioN FocusMe Academy,0.644,0.5,0.144,0.53,61.92,WIN,54.91,3151.03,0.005,0.505,Y,2159.0,Uwinks
-160,2026-04-28,ljl,bo3,Rising Gaming,L Guide Gaming,0.713,0.5,0.213,0.53,63.02,LOSS,-63.02,3088.01,0.35,0.85,Y,34955.0,L Guide Gaming
-161,2026-04-28,ljl,bo3,FENNEL,RAYN Clocks,0.661,0.5,0.161,0.53,61.76,WIN,54.77,3142.78,0.35,0.85,Y,9858.0,FENNEL
-162,2026-04-28,ljl,bo3,FENNEL,DetonatioN FocusMe Academy,0.736,0.5,0.236,0.53,62.86,WIN,55.74,3198.52,0.24,0.74,Y,4310.0,FENNEL
-163,2026-04-28,ljl,bo3,New Meta,L Guide Gaming,0.603,0.5,0.103,0.53,63.97,WIN,56.73,3255.25,0.145,0.645,Y,2461.0,New Meta
-164,2026-05-02,lck challengers,bo3,BNK FEARX Youth,Gen.G Global Academy,0.724,0.5,0.224,0.53,65.11,WIN,57.73,3312.98,0.0,0.5,N,67458.0,BNK FearX Youth
-165,2026-05-02,lck challengers,bo3,Kiwoom DRX Challengers,Hanwha Life Esports Challengers,0.665,0.5,0.165,0.53,66.26,LOSS,-66.26,3246.72,-0.34,0.16,N,17814.0,Hanwha Life Esports Challengers
-166,2026-05-02,lck challengers,bo3,DN SOOPers Challengers,HANJIN BRION Challengers,0.802,0.5,0.302,0.53,64.93,WIN,57.58,3304.3,0.14,0.64,Y,137899.0,DN SOOPers Challengers
-167,2026-05-02,prime league,bo3,Eintracht Spandau,E WIE EINFACH E-SPORTS,0.647,0.5,0.147,0.53,66.09,WIN,58.6,3362.9,0.265,0.765,Y,80553.0,Eintracht Spandau
-168,2026-05-02,ljl,bo3,FENNEL,New Meta,0.619,0.5,0.119,0.53,60.74,WIN,53.86,3416.76,0.0,0.5,N,2025.0,FENNEL
-169,2026-05-03,tcl,bo3,Bushido Wildcats,Dark Passage,0.701,0.5,0.201,0.53,68.34,WIN,60.6,3477.36,0.265,0.765,Y,58084.0,Bushido Wildcats
-170,2026-05-02,ljl,bo3,Rising Gaming,Uwinks,0.629,0.5,0.129,0.53,69.55,WIN,61.67,3539.03,0.0,0.5,N,15842.0,Rising Gaming
-171,2026-05-02,tcl,bo3,Misa Esports,PCIFIC Esports,0.791,0.5,0.291,0.53,70.78,WIN,62.77,3601.8,0.0,0.5,N,31063.0,Misa Esports
-172,2026-05-03,road of legends,bo3,ZennIT,Dynasty,0.644,0.5,0.144,0.53,72.04,LOSS,-72.04,3529.76,-0.395,0.105,N,7945.0,Dynasty
-173,2026-05-03,lfl,bo3,Karmine Corp Blue,Ici Japon Corp. Esport,0.723,0.5,0.223,0.53,70.6,WIN,62.6,3592.36,0.39,0.89,Y,28187.0,Karmine Corp Blue
-174,2026-05-03,lfl,bo3,Galions,Vitality.Bee,0.83,0.5,0.33,0.53,71.85,WIN,63.71,3656.07,0.375,0.875,Y,31279.0,Galions
-175,2026-05-03,road of legends,bo3,UniQ Esports Club,Once Upon A Team,0.662,0.5,0.162,0.53,73.12,WIN,64.84,3720.91,0.37,0.87,Y,4904.0,Senshi Esports Club
-176,2026-05-03,lfl,bo3,Solary,ZYB Esport,0.857,0.5,0.357,0.53,74.42,WIN,65.99,3786.9,0.0,0.5,N,13541.0,Solary
-177,2026-05-04,tcl,bo3,SU Esports,Team Phoenix,0.612,0.495,0.117,0.525,75.74,WIN,68.52,3855.42,0.245,0.74,Y,19510.0,SU Esports
+trade_num,date,league,format,bet_team,opponent,model_prob,market_open,edge,cost,entry_price,fillable_est,stake,result,pnl,bankroll_after,clv,prematch_close,beat_close,market_volume,winner
+1,2026-01-14,road of legends,bo1,ZennIT,mCon esports,0.665,0.5,0.165,0.05,0.55,150.0,20.0,WIN,16.36,1016.36,0.3,0.8,Y,13906.0,ZennIT
+2,2026-01-14,road of legends,bo1,Dynasty,Frites Esports Club,0.404,0.175,0.229,0.05,0.225,150.0,20.33,LOSS,-20.33,996.03,0.005,0.18,Y,8547.0,Frites Esports Club
+3,2026-01-14,road of legends,bo1,UniQ Esports Club,mCon esports,0.631,0.5,0.131,0.04,0.54,300.0,19.92,WIN,16.97,1013.0,0.355,0.855,Y,25401.0,Senshi Esports Club
+4,2026-01-14,road of legends,bo1,ZennIT,Frites Esports Club,0.517,0.185,0.332,0.04,0.225,300.0,20.26,LOSS,-20.26,992.74,0.025,0.21,Y,40690.0,Frites Esports Club
+5,2026-01-14,lck challengers,bo3,DN SOOPers Challengers,BNK FEARX Youth,0.655,0.55,0.105,0.05,0.6,150.0,19.85,WIN,13.23,1005.97,0.295,0.845,Y,10904.0,DN SOOPers Challengers
+6,2026-01-15,tcl,bo3,Team Phoenix,Dark Passage,0.594,0.37,0.224,0.03,0.4,500.0,20.12,LOSS,-20.12,985.85,-0.2,0.17,N,76262.0,Dark Passage
+7,2026-01-16,tcl,bo3,PCIFIC Esports,Bushido Wildcats,0.536,0.225,0.311,0.04,0.265,300.0,19.72,LOSS,-19.72,966.13,-0.07,0.155,N,45266.0,Bushido Wildcats
+8,2026-01-17,lck challengers,bo3,KT Rolster Challengers,Gen.G Global Academy,0.825,0.5,0.325,0.03,0.53,500.0,19.32,WIN,17.13,983.26,0.165,0.665,Y,328250.0,KT Rolster Challengers
+9,2026-01-17,lck challengers,bo3,Hanwha Life Esports Challengers,BNK FEARX Youth,0.43,0.28,0.15,0.03,0.31,500.0,19.67,LOSS,-19.67,963.59,-0.155,0.125,N,72979.0,BNK FearX Youth
+10,2026-01-17,nlc,bo1,Arctic Pandas,Lundqvist Lightside,0.669,0.5,0.169,0.08,0.58,11.99,11.99,WIN,8.68,972.27,0.29,0.79,Y,1199.0,Arctic Pandas
+11,2026-01-17,nlc,bo1,Verdant,DMG Esports,0.713,0.46,0.253,0.04,0.5,300.0,19.45,LOSS,-19.45,952.82,0.27,0.73,Y,32639.0,DMG Esports
+12,2026-01-17,lck challengers,bo3,Nongshim Esports Academy,KT Rolster Challengers,0.469,0.345,0.124,0.03,0.375,500.0,19.06,LOSS,-19.06,933.76,0.55,0.895,Y,67247.0,KT Rolster Challengers
+13,2026-01-17,lck challengers,bo3,Dplus Kia Challengers,BNK FEARX Youth,0.653,0.35,0.303,0.04,0.39,300.0,18.68,LOSS,-18.68,915.08,0.26,0.61,Y,44594.0,BNK FearX Youth
+14,2026-01-17,lfl,bo1,Esprit Shōnen,Lille Esport,0.522,0.29,0.232,0.04,0.33,300.0,18.3,WIN,37.15,952.23,0.03,0.32,Y,18790.0,Esprit Shōnen
+15,2026-01-17,lfl,bo1,TLN Pirates,Ici Japon Corp. Esport,0.61,0.38,0.23,0.05,0.43,150.0,19.04,WIN,25.24,977.47,0.415,0.795,Y,8265.0,TLN Pirates
+16,2026-01-19,road of legends,bo3,ZennIT,Frites Esports Club,0.54,0.155,0.385,0.04,0.195,300.0,19.55,LOSS,-19.55,957.92,-0.045,0.11,N,49708.0,Frites Esports Club
+17,2026-01-19,road of legends,bo3,Myth Esports,Once Upon A Team,0.683,0.38,0.303,0.06,0.44,45.11,19.16,WIN,24.39,982.31,0.49,0.87,Y,3008.0,Myth Esports
+18,2026-01-23,tcl,bo3,Team Phoenix,Bushido Wildcats,0.395,0.22,0.175,0.04,0.26,300.0,19.65,LOSS,-19.65,962.66,-0.115,0.105,N,20012.0,Bushido Wildcats
+19,2026-01-23,tcl,bo3,BoostGate Esports,SU Esports,0.402,0.22,0.182,0.06,0.28,47.76,19.25,LOSS,-19.25,943.41,0.125,0.345,Y,3184.0,SU Esports
+20,2026-01-23,tcl,bo3,PCIFIC Esports,Dark Passage,0.722,0.24,0.482,0.04,0.28,300.0,18.87,LOSS,-18.87,924.54,0.53,0.77,Y,43562.0,Dark Passage
+21,2026-01-24,lfl,bo1,TLN Pirates,Joblife,0.652,0.41,0.242,0.04,0.45,300.0,18.49,WIN,22.6,947.14,-0.185,0.225,N,25194.0,TLN Pirates
+22,2026-01-24,road of legends,bo3,UniQ Esports Club,Frites Esports Club,0.526,0.195,0.331,0.03,0.225,500.0,18.94,LOSS,-18.94,928.2,-0.08,0.115,N,69386.0,Frites Esports Club
+23,2026-01-29,hitpoint,bo3,eSuba,Nightbirds,0.492,0.24,0.252,0.05,0.29,150.0,18.56,LOSS,-18.56,909.64,0.22,0.46,Y,9701.0,NightBirds
+24,2026-01-31,road of legends,bo3,ZennIT,UniQ Esports Club,0.526,0.25,0.276,0.05,0.3,100.36,18.19,LOSS,-18.19,891.45,0.245,0.495,Y,5018.0,Senshi Esports Club
+25,2026-01-31,road of legends,bo3,Dynasty,Once Upon A Team,0.568,0.32,0.248,0.04,0.36,300.0,17.83,WIN,31.7,923.15,0.27,0.59,Y,18357.0,Dynasty
+26,2026-01-31,road of legends,bo3,Myth Esports,mCon esports,0.652,0.32,0.332,0.05,0.37,150.0,18.46,LOSS,-18.46,904.69,0.095,0.415,Y,11171.0,mCon esports
+27,2026-02-01,lfl,bo1,Galions,TLN Pirates,0.825,0.47,0.355,0.04,0.51,300.0,18.09,WIN,17.38,922.07,0.23,0.7,Y,29985.0,Galions
+28,2026-02-01,lfl,bo1,French Flair,Lille Esport,0.705,0.5,0.205,0.03,0.53,500.0,18.44,LOSS,-18.44,903.63,0.16,0.66,Y,76597.0,Lille Esport
+29,2026-02-01,lfl,bo1,Vitality.Bee,Joblife,0.623,0.5,0.123,0.04,0.54,300.0,18.07,LOSS,-18.07,885.56,-0.385,0.115,N,27843.0,Joblife
+30,2026-02-01,lfl,bo1,French Flair,TLN Pirates,0.618,0.5,0.118,0.04,0.54,300.0,17.71,WIN,15.09,900.65,0.225,0.725,Y,22067.0,French Flair
+31,2026-02-01,lfl,bo1,Solary,Vitality.Bee,0.82,0.51,0.31,0.04,0.55,300.0,18.01,WIN,14.74,915.39,0.245,0.755,Y,22576.0,Solary
+32,2026-02-01,lfl,bo1,Galions,ZYB Esport,0.875,0.5,0.375,0.04,0.54,300.0,18.31,WIN,15.6,930.99,0.38,0.88,Y,48208.0,Galions
+33,2026-02-01,lfl,bo1,BK ROG Esports,Joblife,0.624,0.5,0.124,0.05,0.55,150.0,18.62,LOSS,-18.62,912.37,-0.375,0.125,N,14047.0,Joblife
+34,2026-02-01,lfl,bo1,Solary,BK ROG Esports,0.833,0.5,0.333,0.04,0.54,300.0,18.25,WIN,15.55,927.92,0.16,0.66,Y,34150.0,Solary
+35,2026-02-01,lfl,bo1,Galions,Joblife,0.902,0.5,0.402,0.03,0.53,500.0,18.56,WIN,16.46,944.38,0.29,0.79,Y,84314.0,Galions
+36,2026-02-01,lfl,bo1,TLN Pirates,ZYB Esport,0.609,0.5,0.109,0.03,0.53,500.0,18.89,WIN,16.75,961.13,0.35,0.85,Y,52768.0,TLN Pirates
+37,2026-02-01,tcl,bo3,PCIFIC Esports,Team Phoenix,0.629,0.43,0.199,0.05,0.48,150.0,19.22,WIN,20.82,981.95,0.43,0.86,Y,13666.0,PCIFIC
+38,2026-02-01,tcl,bo3,Bushido Wildcats,Dark Passage,0.701,0.5,0.201,0.04,0.54,300.0,19.64,WIN,16.73,998.68,0.35,0.85,Y,48776.0,Bushido Wildcats
+39,2026-02-01,nlc,bo1,Bulldog Esports,Arctic Pandas,0.391,0.26,0.131,0.05,0.31,150.0,19.97,WIN,44.45,1043.13,0.255,0.515,Y,13496.0,Bulldog Esports
+40,2026-02-05,lck challengers,bo5,Nongshim Esports Academy,Hanwha Life Esports Challengers,0.667,0.5,0.167,0.03,0.53,500.0,20.86,WIN,18.5,1061.63,0.385,0.885,Y,417785.0,Nongshim Esports Academy
+41,2026-02-08,tcl,bo3,SU Esports,Dark Passage,0.707,0.42,0.287,0.03,0.45,500.0,21.23,WIN,25.95,1087.58,0.36,0.78,Y,96430.0,SU Esports
+42,2026-02-08,tcl,bo3,PCIFIC Esports,S2G Esports,0.438,0.235,0.203,0.04,0.275,300.0,21.75,LOSS,-21.75,1065.83,-0.13,0.105,N,42415.0,S2G Esports
+43,2026-02-08,road of legends,bo5,ZennIT,mCon esports,0.665,0.5,0.165,0.04,0.54,300.0,21.32,WIN,18.16,1083.99,0.385,0.885,Y,18626.0,ZennIT
+44,2026-02-09,lfl,bo1,TLN Pirates,Joblife,0.672,0.505,0.167,0.04,0.545,300.0,21.68,LOSS,-21.68,1062.31,-0.295,0.21,N,24734.0,Joblife
+45,2026-02-09,lfl,bo1,French Flair,ZYB Esport,0.688,0.495,0.193,0.03,0.525,500.0,21.25,WIN,19.23,1081.54,0.34,0.835,Y,89909.0,French Flair
+46,2026-02-09,lfl,bo1,Solary,TLN Pirates,0.787,0.49,0.297,0.04,0.53,300.0,21.63,WIN,19.18,1100.72,0.22,0.71,Y,22121.0,Solary
+47,2026-02-09,lfl,bo1,Galions,Lille Esport,0.865,0.49,0.375,0.04,0.53,300.0,22.01,WIN,19.52,1120.24,0.37,0.86,Y,24206.0,Galions
+48,2026-02-09,lfl,bo1,French Flair,Vitality.Bee,0.626,0.5,0.126,0.04,0.54,300.0,22.4,WIN,19.08,1139.32,0.0,0.5,N,24696.0,French Flair
+49,2026-02-09,tcl,bo3,Misa Esports,SU Esports,0.803,0.505,0.298,0.04,0.545,300.0,22.79,WIN,19.03,1158.35,0.38,0.885,Y,22547.0,Misa Esports
+50,2026-02-09,tcl,bo3,S2G Esports,Bushido Wildcats,0.586,0.425,0.161,0.03,0.455,500.0,23.17,WIN,27.75,1186.1,0.435,0.86,Y,62245.0,S2G Esports
+51,2026-02-10,prime league,bo1,Eintracht Spandau,G2 NORD,0.641,0.5,0.141,0.04,0.54,300.0,23.72,WIN,20.21,1206.31,-0.155,0.345,N,45353.0,Eintracht Spandau
+52,2026-02-10,prime league,bo1,Berlin International Gaming,E WIE EINFACH E-SPORTS,0.702,0.505,0.197,0.04,0.545,300.0,24.13,WIN,20.15,1226.46,0.325,0.83,Y,38209.0,Berlin International Gaming
+53,2026-02-11,tcl,bo5,Bushido Wildcats,Dark Passage,0.682,0.5,0.182,0.04,0.54,300.0,24.53,WIN,20.9,1247.36,0.395,0.895,Y,26246.0,Bushido Wildcats
+54,2026-02-11,lfl,bo1,Solary,ZYB Esport,0.846,0.5,0.346,0.04,0.54,300.0,24.95,WIN,21.25,1268.61,0.36,0.86,Y,28695.0,Solary
+55,2026-02-11,lfl,bo1,French Flair,Joblife,0.76,0.53,0.23,0.04,0.57,300.0,25.37,LOSS,-25.37,1243.24,-0.19,0.34,N,31515.0,Joblife
+56,2026-02-12,lfl,bo1,Galions,Vitality.Bee,0.83,0.51,0.32,0.03,0.54,500.0,24.86,LOSS,-24.86,1218.38,-0.32,0.19,N,58948.0,Vitality.Bee
+57,2026-02-12,lfl,bo1,Solary,Joblife,0.878,0.5,0.378,0.04,0.54,300.0,24.37,WIN,20.76,1239.14,0.29,0.79,Y,23510.0,Solary
+58,2026-02-12,lfl,bo1,French Flair,BK ROG Esports,0.667,0.5,0.167,0.03,0.53,500.0,24.78,WIN,21.97,1261.11,0.385,0.885,Y,85468.0,French Flair
+59,2026-02-13,tcl,bo5,Misa Esports,S2G Esports,0.756,0.505,0.251,0.04,0.545,300.0,25.22,WIN,21.06,1282.17,0.365,0.87,Y,44604.0,Misa Esports
+60,2026-02-14,lfl,bo1,Galions,BK ROG Esports,0.842,0.5,0.342,0.03,0.53,500.0,25.64,WIN,22.74,1304.91,0.19,0.69,Y,115646.0,Galions
+61,2026-02-14,lfl,bo1,Vitality.Bee,TLN Pirates,0.458,0.26,0.198,0.03,0.29,500.0,26.1,LOSS,-26.1,1278.81,0.12,0.38,Y,98949.0,TLN Pirates
+62,2026-02-14,lfl,bo1,Solary,French Flair,0.723,0.5,0.223,0.03,0.53,500.0,25.58,LOSS,-25.58,1253.23,0.23,0.73,Y,131964.0,French Flair
+63,2026-02-18,nlc,bo1,Verdant,Lundqvist Lightside,0.76,0.5,0.26,0.08,0.58,1.9,1.9,WIN,1.38,1254.61,-0.01,0.49,N,190.0,Verdant
+64,2026-02-18,lfl,bo1,Solary,Lille Esport,0.857,0.48,0.377,0.04,0.52,300.0,25.09,WIN,23.16,1277.77,0.39,0.87,Y,37437.0,Solary
+65,2026-02-18,lfl,bo1,Galions,French Flair,0.753,0.495,0.258,0.03,0.525,500.0,25.56,LOSS,-25.56,1252.21,-0.06,0.435,N,82557.0,French Flair
+66,2026-02-18,prime league,bo1,Unicorns of Love Sexy Edition,E WIE EINFACH E-SPORTS,0.639,0.5,0.139,0.04,0.54,300.0,25.04,WIN,21.33,1273.54,0.175,0.675,Y,15584.0,Unicorns Of Love Sexy Edition
+67,2026-02-19,lfl,bo1,French Flair,Joblife,0.743,0.5,0.243,0.03,0.53,500.0,25.47,WIN,22.59,1296.13,0.2,0.7,Y,131645.0,French Flair
+68,2026-02-19,lfl,bo1,Galions,French Flair,0.753,0.5,0.253,0.03,0.53,500.0,25.92,WIN,22.99,1319.12,0.19,0.69,Y,54104.0,Galions
+69,2026-02-19,lfl,bo1,Galions,Joblife,0.902,0.5,0.402,0.04,0.54,300.0,26.38,WIN,22.47,1341.59,0.12,0.62,Y,23795.0,Galions
+70,2026-02-21,ljl,bo1,Inferno Drive Tokyo,DetonatioN FocusMe Academy,0.637,0.5,0.137,0.05,0.55,150.0,26.83,WIN,21.95,1363.54,0.39,0.89,Y,8272.0,Inferno Drive Tokyo
+71,2026-02-21,ljl,bo1,FENNEL,Yang Yang Gaming,0.751,0.5,0.251,0.04,0.54,300.0,27.27,WIN,23.23,1386.77,0.335,0.835,Y,38732.0,FENNEL
+72,2026-02-21,ljl,bo1,Uwinks,Yang Yang Gaming,0.641,0.5,0.141,0.05,0.55,150.0,27.74,WIN,22.7,1409.47,0.095,0.595,Y,10279.0,Uwinks
+73,2026-02-21,ljl,bo1,New Meta,DetonatioN FocusMe Academy,0.621,0.5,0.121,0.08,0.58,2.89,2.89,WIN,2.09,1411.56,0.0,0.5,N,289.0,New Meta
+74,2026-02-21,ljl,bo1,Inferno Drive Tokyo,Fast8,0.652,0.5,0.152,0.08,0.58,4.83,4.83,WIN,3.5,1415.06,0.385,0.885,Y,483.0,Inferno Drive Tokyo
+75,2026-02-21,ljl,bo1,Rising Gaming,NOVEX,0.712,0.505,0.207,0.04,0.545,300.0,28.3,LOSS,-28.3,1386.76,0.045,0.55,Y,18560.0,NOVEX
+76,2026-02-22,prime league,bo3,Eintracht Spandau,E WIE EINFACH E-SPORTS,0.647,0.505,0.142,0.03,0.535,500.0,27.74,WIN,24.11,1410.87,0.39,0.895,Y,88450.0,Eintracht Spandau
+77,2026-02-22,tcl,bo5,S2G Esports,Bushido Wildcats,0.608,0.495,0.113,0.03,0.525,500.0,28.22,WIN,25.53,1436.4,0.36,0.855,Y,100850.0,S2G Esports
+78,2026-02-23,ljl,bo1,VARREL YOUTH,Fast8,0.617,0.375,0.242,0.08,0.455,9.95,9.95,WIN,11.92,1448.32,0.505,0.88,Y,995.0,VARREL YOUTH
+79,2026-02-23,ljl,bo1,FENNEL,Uwinks,0.638,0.48,0.158,0.06,0.54,31.11,28.97,WIN,24.68,1473.0,0.0,0.48,N,2074.0,FENNEL
+80,2026-02-23,ljl,bo1,L Guide Gaming,DetonatioN FocusMe Academy,0.531,0.315,0.216,0.06,0.375,39.15,29.46,LOSS,-29.46,1443.54,-0.17,0.145,N,2610.0,DetonatioN FocusMe Academy
+81,2026-02-23,nlc,bo1,Deer Gaming,Lundqvist Lightside,0.628,0.5,0.128,0.04,0.54,300.0,28.87,WIN,24.59,1468.13,0.12,0.62,Y,32466.0,Deer Gaming
+82,2026-02-23,nlc,bo1,Arctic Pandas,DMG Esports,0.613,0.5,0.113,0.04,0.54,300.0,29.36,WIN,25.01,1493.14,0.1,0.6,Y,36559.0,Arctic Pandas
+83,2026-02-23,nlc,bo1,Verdant,Bulldog Esports,0.728,0.51,0.218,0.03,0.54,500.0,29.86,WIN,25.44,1518.58,0.32,0.83,Y,126015.0,Verdant
+84,2026-02-23,lfl,bo5,TLN Pirates,Joblife,0.652,0.5,0.152,0.03,0.53,500.0,30.37,WIN,26.93,1545.51,-0.395,0.105,N,243545.0,TLN Pirates
+85,2026-02-27,prime league,bo5,Unicorns of Love Sexy Edition,G2 NORD,0.674,0.265,0.409,0.03,0.295,500.0,30.91,LOSS,-30.91,1514.6,-0.15,0.115,N,116206.0,G2 NORD
+86,2026-03-01,ljl,bo1,FENNEL,NOVEX,0.72,0.5,0.22,0.08,0.58,17.61,17.61,WIN,12.75,1527.35,0.32,0.82,Y,1761.0,FENNEL
+87,2026-03-01,ljl,bo1,New Meta,Fast8,0.636,0.5,0.136,0.08,0.58,9.1,9.1,WIN,6.59,1533.94,0.235,0.735,Y,910.0,New Meta
+88,2026-03-01,ljl,bo1,Rising Gaming,Uwinks,0.629,0.5,0.129,0.04,0.54,300.0,30.68,WIN,26.13,1560.07,0.31,0.81,Y,43967.0,Rising Gaming
+89,2026-03-01,ljl,bo1,Inferno Drive Tokyo,L Guide Gaming,0.619,0.5,0.119,0.04,0.54,300.0,31.2,LOSS,-31.2,1528.87,0.02,0.52,Y,26354.0,L Guide Gaming
+90,2026-03-02,ljl,bo1,Yang Yang Gaming,NOVEX,0.449,0.17,0.279,0.04,0.21,300.0,30.58,WIN,115.04,1643.91,-0.03,0.14,N,24573.0,Yang Yang Gaming
+91,2026-03-13,emea masters,bo3,Arctic Pandas,Nightbirds,0.587,0.365,0.222,0.03,0.395,500.0,32.88,WIN,50.36,1694.27,0.48,0.845,Y,71847.0,Arctic Pandas
+92,2026-03-26,lck challengers,bo3,DN SOOPers Challengers,KT Rolster Challengers,0.514,0.25,0.265,0.03,0.28,500.0,33.89,LOSS,-33.89,1660.38,-0.09,0.16,N,88074.0,KT Rolster Challengers
+93,2026-03-26,lck challengers,bo3,Dplus Kia Challengers,Gen.G Global Academy,0.85,0.5,0.35,0.03,0.53,500.0,33.21,WIN,29.45,1689.83,0.37,0.87,Y,79002.0,Dplus KIA Challengers
+94,2026-03-26,lck challengers,bo3,Kiwoom DRX Challengers,KT Rolster Challengers,0.466,0.245,0.221,0.03,0.275,500.0,33.8,WIN,89.11,1778.94,0.405,0.65,Y,72869.0,Kiwoom DRX Challengers
+95,2026-03-26,lck challengers,bo3,Gen.G Global Academy,HANJIN BRION Challengers,0.426,0.245,0.181,0.03,0.275,500.0,35.58,LOSS,-35.58,1743.36,0.05,0.295,Y,174151.0,HANJIN BRION Challengers
+96,2026-03-26,lck challengers,bo3,Nongshim Esports Academy,BNK FEARX Youth,0.613,0.5,0.113,0.05,0.55,150.0,34.87,WIN,28.53,1771.89,0.38,0.88,Y,7675.0,Nongshim Esports Academy
+97,2026-03-30,prime league,bo1,Eintracht Spandau,G2 NORD,0.641,0.5,0.141,0.03,0.53,500.0,35.44,WIN,31.43,1803.32,-0.215,0.285,N,97362.0,Eintracht Spandau
+98,2026-03-31,road of legends,bo3,ZennIT,mCon esports,0.644,0.255,0.389,0.05,0.305,150.0,36.07,LOSS,-36.07,1767.25,0.415,0.67,Y,11883.0,mCon esports
+99,2026-04-03,lck challengers,bo3,BNK FEARX Youth,Gen.G Global Academy,0.742,0.5,0.242,0.03,0.53,500.0,35.34,WIN,31.34,1798.59,0.19,0.69,Y,318686.0,BNK FearX Youth
+100,2026-04-03,lck challengers,bo3,DN SOOPers Challengers,HANJIN BRION Challengers,0.787,0.5,0.287,0.03,0.53,500.0,35.97,WIN,31.9,1830.49,0.345,0.845,Y,1024695.0,DN SOOPers Challengers
+101,2026-04-04,lck challengers,bo3,Kiwoom DRX Challengers,Hanwha Life Esports Challengers,0.644,0.5,0.144,0.03,0.53,500.0,36.61,WIN,32.47,1862.96,0.28,0.78,Y,204422.0,Kiwoom DRX Challengers
+102,2026-04-04,prime league,bo1,Unicorns of Love Sexy Edition,G2 NORD,0.654,0.5,0.154,0.03,0.53,500.0,37.26,WIN,33.04,1896.0,-0.14,0.36,N,136469.0,Unicorns Of Love Sexy Edition
+103,2026-04-04,lck challengers,bo3,DN SOOPers Challengers,BNK FEARX Youth,0.675,0.5,0.175,0.03,0.53,500.0,37.92,WIN,33.63,1929.63,0.39,0.89,Y,97222.0,DN SOOPers Challengers
+104,2026-04-04,lck challengers,bo3,Dplus Kia Challengers,HANJIN BRION Challengers,0.8,0.5,0.3,0.03,0.53,500.0,38.59,WIN,34.22,1963.85,0.26,0.76,Y,125421.0,Dplus KIA Challengers
+105,2026-04-04,lck challengers,bo3,KT Rolster Challengers,Hanwha Life Esports Challengers,0.704,0.5,0.204,0.03,0.53,500.0,39.28,LOSS,-39.28,1924.57,-0.28,0.22,N,116249.0,Hanwha Life Esports Challengers
+106,2026-04-07,tcl,bo3,PCIFIC Esports,BoostGate Esports,0.636,0.505,0.131,0.04,0.545,300.0,38.49,WIN,32.13,1956.7,0.24,0.745,Y,32922.0,PCIFIC
+107,2026-04-07,tcl,bo3,Misa Esports,Ozarox Esports,0.862,0.575,0.287,0.04,0.615,300.0,39.13,WIN,24.5,1981.2,0.31,0.885,Y,19992.0,Misa Esports
+108,2026-04-07,tcl,bo3,Team Phoenix,Bushido Wildcats,0.395,0.19,0.205,0.04,0.23,300.0,39.62,LOSS,-39.62,1941.58,-0.085,0.105,N,31435.0,Bushido Wildcats
+109,2026-04-07,lfl,bo1,Solary,TLN Pirates,0.787,0.5,0.287,0.03,0.53,500.0,38.83,WIN,34.43,1976.01,0.065,0.565,Y,68735.0,Solary
+110,2026-04-07,lfl,bo1,Karmine Corp Blue,Joblife,0.741,0.5,0.241,0.04,0.54,300.0,39.52,WIN,33.67,2009.68,0.12,0.62,Y,27437.0,Karmine Corp Blue
+111,2026-04-07,lfl,bo1,Galions,Ici Japon Corp. Esport,0.876,0.5,0.376,0.03,0.53,500.0,40.19,LOSS,-40.19,1969.49,0.01,0.51,Y,127936.0,Ici Japon Corp. Esport
+112,2026-04-07,lfl,bo1,TLN Pirates,Ici Japon Corp. Esport,0.61,0.5,0.11,0.04,0.54,300.0,39.39,WIN,33.55,2003.04,0.375,0.875,Y,47313.0,TLN Pirates
+113,2026-04-07,lfl,bo1,Karmine Corp Blue,Esprit Shōnen,0.674,0.5,0.174,0.03,0.53,500.0,40.06,WIN,35.52,2038.56,0.235,0.735,Y,81114.0,Karmine Corp Blue
+114,2026-04-07,lfl,bo1,Solary,Joblife,0.878,0.5,0.378,0.03,0.53,500.0,40.77,WIN,36.15,2074.71,0.255,0.755,Y,50582.0,Solary
+115,2026-04-07,lfl,bo1,Galions,Vitality.Bee,0.83,0.5,0.33,0.03,0.53,500.0,41.49,LOSS,-41.49,2033.22,0.095,0.595,Y,236240.0,Vitality.Bee
+116,2026-04-10,lck challengers,bo3,Kiwoom DRX Challengers,Gen.G Global Academy,0.797,0.5,0.297,0.03,0.53,500.0,40.66,LOSS,-40.66,1992.56,-0.24,0.26,N,252860.0,Gen.G Global Academy
+117,2026-04-10,lck challengers,bo3,KT Rolster Challengers,HANJIN BRION Challengers,0.769,0.495,0.274,0.03,0.525,500.0,39.85,WIN,36.05,2028.61,0.39,0.885,Y,128457.0,KT Rolster Challengers
+118,2026-04-10,lck challengers,bo3,Nongshim Esports Academy,Hanwha Life Esports Challengers,0.667,0.505,0.162,0.03,0.535,500.0,40.57,LOSS,-40.57,1988.04,-0.12,0.385,N,57664.0,Hanwha Life Esports Challengers
+119,2026-04-10,lck challengers,bo3,Dplus Kia Challengers,BNK FEARX Youth,0.653,0.5,0.153,0.03,0.53,500.0,39.76,WIN,35.26,2023.3,-0.08,0.42,N,332490.0,Dplus KIA Challengers
+120,2026-04-10,lck challengers,bo3,Hanwha Life Esports Challengers,Gen.G Global Academy,0.694,0.505,0.189,0.03,0.535,500.0,40.47,LOSS,-40.47,1982.83,-0.25,0.255,N,93541.0,Gen.G Global Academy
+121,2026-04-10,lck challengers,bo3,BNK FEARX Youth,HANJIN BRION Challengers,0.65,0.495,0.155,0.03,0.525,500.0,39.66,WIN,35.88,2018.71,0.14,0.635,Y,82007.0,BNK FearX Youth
+122,2026-04-12,road of legends,bo3,Myth Esports,Dynasty,0.631,0.505,0.126,0.04,0.545,300.0,40.37,LOSS,-40.37,1978.34,-0.235,0.27,N,37820.0,Dynasty
+123,2026-04-12,road of legends,bo3,UniQ Esports Club,mCon esports,0.652,0.5,0.152,0.05,0.55,150.0,39.57,WIN,32.38,2010.72,0.33,0.83,Y,9179.0,Senshi Esports Club
+124,2026-04-12,prime league,bo1,Eintracht Spandau,E WIE EINFACH E-SPORTS,0.647,0.5,0.147,0.03,0.53,500.0,40.21,LOSS,-40.21,1970.51,-0.285,0.215,N,58718.0,E WIE EINFACH E-SPORTS
+125,2026-04-13,tcl,bo3,Misa Esports,Team Phoenix,0.87,0.505,0.365,0.04,0.545,300.0,39.41,WIN,32.9,2003.41,0.0,0.505,N,15722.0,Misa Esports
+126,2026-04-13,tcl,bo3,BoostGate Esports,Dark Passage,0.608,0.495,0.113,0.04,0.535,300.0,40.07,WIN,34.83,2038.24,0.34,0.835,Y,23872.0,BoostGate Esports
+127,2026-04-13,tcl,bo3,PCIFIC Esports,Ozarox Esports,0.633,0.5,0.133,0.04,0.54,300.0,40.76,LOSS,-40.76,1997.48,-0.33,0.17,N,45037.0,Ozarox Esports
+128,2026-04-13,lfl,bo1,Solary,Karmine Corp Blue,0.707,0.5,0.207,0.03,0.53,500.0,39.95,WIN,35.43,2032.91,0.325,0.825,Y,148689.0,Solary
+129,2026-04-13,lfl,bo1,Vitality.Bee,Joblife,0.644,0.5,0.144,0.03,0.53,500.0,40.66,WIN,36.06,2068.97,0.195,0.695,Y,79751.0,Vitality.Bee
+130,2026-04-13,lfl,bo1,Galions,TLN Pirates,0.825,0.5,0.325,0.03,0.53,500.0,41.38,LOSS,-41.38,2027.59,0.105,0.605,Y,98354.0,TLN Pirates
+131,2026-04-13,lfl,bo1,Karmine Corp Blue,Ici Japon Corp. Esport,0.723,0.5,0.223,0.03,0.53,500.0,40.55,LOSS,-40.55,1987.04,-0.39,0.11,N,117292.0,Ici Japon Corp. Esport
+132,2026-04-15,prime league,bo1,Unicorns of Love Sexy Edition,E WIE EINFACH E-SPORTS,0.639,0.5,0.139,0.04,0.54,300.0,39.74,LOSS,-39.74,1947.3,-0.195,0.305,N,45039.0,E WIE EINFACH E-SPORTS
+133,2026-04-16,lck challengers,bo3,Nongshim Esports Academy,Gen.G Global Academy,0.798,0.5,0.298,0.03,0.53,500.0,38.95,WIN,34.54,1981.84,0.39,0.89,Y,271828.0,Nongshim Esports Academy
+134,2026-04-16,lck challengers,bo3,KT Rolster Challengers,BNK FEARX Youth,0.631,0.5,0.132,0.03,0.53,500.0,39.64,WIN,35.15,2016.99,0.035,0.535,Y,269830.0,KT Rolster Challengers
+135,2026-04-16,lck challengers,bo3,DN SOOPers Challengers,Hanwha Life Esports Challengers,0.706,0.5,0.206,0.03,0.53,500.0,40.34,WIN,35.77,2052.76,0.235,0.735,Y,493389.0,DN SOOPers Challengers
+136,2026-04-16,lck challengers,bo3,Kiwoom DRX Challengers,HANJIN BRION Challengers,0.752,0.5,0.252,0.03,0.53,500.0,41.06,WIN,36.41,2089.17,0.395,0.895,Y,72809.0,Kiwoom DRX Challengers
+137,2026-04-16,lck challengers,bo3,Dplus Kia Challengers,Hanwha Life Esports Challengers,0.705,0.495,0.21,0.03,0.525,500.0,41.78,WIN,37.8,2126.97,0.355,0.85,Y,242159.0,Dplus KIA Challengers
+138,2026-04-16,lck challengers,bo3,KT Rolster Challengers,Gen.G Global Academy,0.837,0.505,0.332,0.03,0.535,500.0,42.54,WIN,36.97,2163.94,0.375,0.88,Y,70196.0,KT Rolster Challengers
+139,2026-04-18,tcl,bo3,PCIFIC Esports,Team Phoenix,0.649,0.505,0.144,0.04,0.545,300.0,43.28,WIN,36.13,2200.07,0.22,0.725,Y,15721.0,PCIFIC
+140,2026-04-19,tcl,bo3,Ozarox Esports,Dark Passage,0.611,0.49,0.121,0.05,0.54,150.0,44.0,WIN,37.48,2237.55,0.385,0.875,Y,11490.0,Ozarox Esports
+141,2026-04-19,prime league,bo3,Eintracht Spandau,G2 NORD,0.662,0.5,0.162,0.04,0.54,300.0,44.75,WIN,38.12,2275.67,0.205,0.705,Y,32506.0,Eintracht Spandau
+142,2026-04-20,lfl,bo1,Solary,Ici Japon Corp. Esport,0.868,0.5,0.368,0.03,0.53,500.0,45.51,WIN,40.36,2316.03,0.255,0.755,Y,109762.0,Solary
+143,2026-04-20,lfl,bo1,Galions,Joblife,0.902,0.5,0.402,0.03,0.53,500.0,46.32,WIN,41.08,2357.11,0.25,0.75,Y,59506.0,Galions
+144,2026-04-20,lfl,bo1,Karmine Corp Blue,Vitality.Bee,0.644,0.5,0.144,0.03,0.53,500.0,47.14,WIN,41.8,2398.91,-0.095,0.405,N,194849.0,Karmine Corp Blue
+145,2026-04-20,road of legends,bo3,Once Upon A Team,mCon esports,0.477,0.195,0.282,0.04,0.235,300.0,47.98,WIN,156.19,2555.1,-0.02,0.175,N,40875.0,Once Upon A Team
+146,2026-04-20,road of legends,bo3,Dynasty,Frites Esports Club,0.382,0.265,0.117,0.05,0.315,150.0,51.1,LOSS,-51.1,2504.0,0.015,0.28,Y,13284.0,Frites Esports Club
+147,2026-04-21,lfl,bo1,TLN Pirates,Joblife,0.672,0.5,0.172,0.04,0.54,300.0,50.08,WIN,42.66,2546.66,0.385,0.885,Y,49500.0,TLN Pirates
+148,2026-04-21,lfl,bo1,Solary,Vitality.Bee,0.82,0.5,0.32,0.03,0.53,500.0,50.93,WIN,45.16,2591.82,0.285,0.785,Y,111224.0,Solary
+149,2026-04-21,lfl,bo1,Galions,Esprit Shōnen,0.87,0.5,0.37,0.03,0.53,500.0,51.84,WIN,45.97,2637.79,0.375,0.875,Y,89256.0,Galions
+150,2026-04-21,lfl,bo1,Karmine Corp Blue,ZYB Esport,0.704,0.5,0.204,0.03,0.53,500.0,52.76,WIN,46.79,2684.58,0.175,0.675,Y,74121.0,Karmine Corp Blue
+151,2026-04-23,tcl,bo3,Misa Esports,SU Esports,0.803,0.5,0.303,0.05,0.55,138.99,53.69,WIN,43.93,2728.51,0.355,0.855,Y,6950.0,Misa Esports
+152,2026-04-24,lck challengers,bo3,DN SOOPers Challengers,Gen.G Global Academy,0.851,0.74,0.111,0.03,0.77,500.0,54.57,WIN,16.3,2744.81,0.115,0.855,Y,222295.0,DN SOOPers Challengers
+153,2026-04-24,lck challengers,bo3,Dplus Kia Challengers,Gen.G Global Academy,0.838,0.61,0.228,0.03,0.64,500.0,54.9,WIN,30.88,2775.69,0.185,0.795,Y,115492.0,Dplus KIA Challengers
+154,2026-04-24,prime league,bo3,E WIE EINFACH E-SPORTS,G2 NORD,0.505,0.36,0.145,0.03,0.39,500.0,55.51,LOSS,-55.51,2720.18,-0.185,0.175,N,295540.0,G2 NORD
+155,2026-04-24,tcl,bo3,Misa Esports,BoostGate Esports,0.864,0.735,0.129,0.03,0.765,500.0,54.4,WIN,16.71,2736.89,0.13,0.865,Y,51868.0,Misa Esports
+156,2026-04-24,lfl,bo1,Galions,Karmine Corp Blue,0.756,0.5,0.256,0.03,0.53,500.0,54.74,LOSS,-54.74,2682.15,-0.225,0.275,N,129952.0,Karmine Corp Blue
+157,2026-04-24,lfl,bo1,Solary,ZYB Esport,0.857,0.745,0.112,0.03,0.775,500.0,53.64,WIN,15.57,2697.72,0.1,0.845,Y,93214.0,Solary
+158,2026-04-25,road of legends,bo3,Myth Esports,mCon esports,0.652,0.505,0.147,0.04,0.545,300.0,53.95,WIN,45.04,2742.76,0.18,0.685,Y,30748.0,Myth Esports
+159,2026-04-28,ljl,bo3,Uwinks,DetonatioN FocusMe Academy,0.644,0.5,0.144,0.06,0.56,32.38,32.38,WIN,25.44,2768.2,0.005,0.505,Y,2159.0,Uwinks
+160,2026-04-28,ljl,bo3,Rising Gaming,L Guide Gaming,0.713,0.5,0.213,0.04,0.54,300.0,55.36,LOSS,-55.36,2712.84,0.35,0.85,Y,34955.0,L Guide Gaming
+161,2026-04-28,ljl,bo3,FENNEL,RAYN Clocks,0.661,0.5,0.161,0.05,0.55,150.0,54.26,WIN,44.39,2757.23,0.35,0.85,Y,9858.0,FENNEL
+162,2026-04-28,ljl,bo3,FENNEL,DetonatioN FocusMe Academy,0.736,0.5,0.236,0.06,0.56,50.0,50.0,WIN,39.29,2796.52,0.24,0.74,Y,4310.0,FENNEL
+163,2026-04-28,ljl,bo3,New Meta,L Guide Gaming,0.603,0.5,0.103,0.06,0.56,36.92,36.92,WIN,29.01,2825.53,0.145,0.645,Y,2461.0,New Meta
+164,2026-05-02,lck challengers,bo3,BNK FEARX Youth,Gen.G Global Academy,0.724,0.5,0.224,0.03,0.53,500.0,56.51,WIN,50.11,2875.64,0.0,0.5,N,67458.0,BNK FearX Youth
+165,2026-05-02,lck challengers,bo3,Kiwoom DRX Challengers,Hanwha Life Esports Challengers,0.665,0.5,0.165,0.04,0.54,300.0,57.51,LOSS,-57.51,2818.13,-0.34,0.16,N,17814.0,Hanwha Life Esports Challengers
+166,2026-05-02,lck challengers,bo3,DN SOOPers Challengers,HANJIN BRION Challengers,0.802,0.5,0.302,0.03,0.53,500.0,56.36,WIN,49.98,2868.11,0.14,0.64,Y,137899.0,DN SOOPers Challengers
+167,2026-05-02,prime league,bo3,Eintracht Spandau,E WIE EINFACH E-SPORTS,0.647,0.5,0.147,0.03,0.53,500.0,57.36,WIN,50.87,2918.98,0.265,0.765,Y,80553.0,Eintracht Spandau
+168,2026-05-02,ljl,bo3,FENNEL,New Meta,0.619,0.5,0.119,0.06,0.56,30.37,30.37,WIN,23.86,2942.84,0.0,0.5,N,2025.0,FENNEL
+169,2026-05-03,tcl,bo3,Bushido Wildcats,Dark Passage,0.701,0.5,0.201,0.03,0.53,500.0,58.86,WIN,52.2,2995.04,0.265,0.765,Y,58084.0,Bushido Wildcats
+170,2026-05-02,ljl,bo3,Rising Gaming,Uwinks,0.629,0.5,0.129,0.04,0.54,300.0,59.9,WIN,51.03,3046.07,0.0,0.5,N,15842.0,Rising Gaming
+171,2026-05-02,tcl,bo3,Misa Esports,PCIFIC Esports,0.791,0.5,0.291,0.04,0.54,300.0,60.92,WIN,51.89,3097.96,0.0,0.5,N,31063.0,Misa Esports
+172,2026-05-03,road of legends,bo3,ZennIT,Dynasty,0.644,0.5,0.144,0.05,0.55,150.0,61.96,LOSS,-61.96,3036.0,-0.395,0.105,N,7945.0,Dynasty
+173,2026-05-03,lfl,bo3,Karmine Corp Blue,Ici Japon Corp. Esport,0.723,0.5,0.223,0.04,0.54,300.0,60.72,WIN,51.72,3087.72,0.39,0.89,Y,28187.0,Karmine Corp Blue
+174,2026-05-03,lfl,bo3,Galions,Vitality.Bee,0.83,0.5,0.33,0.04,0.54,300.0,61.75,WIN,52.6,3140.32,0.375,0.875,Y,31279.0,Galions
+175,2026-05-03,road of legends,bo3,UniQ Esports Club,Once Upon A Team,0.662,0.5,0.162,0.06,0.56,50.0,50.0,WIN,39.29,3179.61,0.37,0.87,Y,4904.0,Senshi Esports Club
+176,2026-05-03,lfl,bo3,Solary,ZYB Esport,0.857,0.5,0.357,0.05,0.55,150.0,63.59,WIN,52.03,3231.64,0.0,0.5,N,13541.0,Solary
+177,2026-05-04,tcl,bo3,SU Esports,Team Phoenix,0.612,0.495,0.117,0.04,0.535,300.0,64.63,WIN,56.17,3287.81,0.245,0.74,Y,19510.0,SU Esports
