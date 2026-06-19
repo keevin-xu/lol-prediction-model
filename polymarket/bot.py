@@ -14,7 +14,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Optional, Set
+from typing import Optional
 
 import discord
 from discord import app_commands
@@ -29,13 +29,12 @@ load_dotenv(_ROOT / ".env")
 
 from model.blend import get_all_ratings
 from model.predict import predict_match
-from polymarket.edge import EdgeSignal, find_edges, format_signal
+from polymarket.edge import EdgeSignal, find_edges
 from polymarket.paper_trader import (
     check_resolutions,
     get_open_positions,
     get_portfolio_summary,
     get_trade_history,
-    place_bet,
     reset_portfolio,
 )
 from polymarket.scanner import MarketOpportunity, scan
@@ -53,8 +52,6 @@ DB_PATH = _ROOT / "db" / "lol_model.db"
 # ---------------------------------------------------------------------------
 SCAN_INTERVAL_MINUTES = 5
 MIN_EDGE = 0.03
-EDGE_CHANGE_THRESHOLD = 0.02  # re-alert if edge changes by 2%+
-PRICE_CHANGE_THRESHOLD = 0.05  # re-alert if price moves $0.05+
 
 
 # ---------------------------------------------------------------------------
@@ -72,9 +69,6 @@ class LoLEdgeBot(discord.Client):
         self.last_scan: Optional[datetime] = None
         self.scan_count = 0
         self.markets_found = 0
-
-        # Track notified signals to avoid spam: market_id → last EdgeSignal
-        self._notified: Dict[str, EdgeSignal] = {}
 
         self._setup_commands()
 
@@ -330,18 +324,6 @@ class LoLEdgeBot(discord.Client):
         return embed
 
     # -----------------------------------------------------------------------
-    # Should we alert on this signal?
-    # -----------------------------------------------------------------------
-    def _should_alert(self, sig: EdgeSignal) -> bool:
-        mid = sig.opportunity.market_id
-        prev = self._notified.get(mid)
-        if prev is None:
-            return True
-        edge_change = abs(sig.edge - prev.edge)
-        price_change = abs(sig.opportunity.market_prob_a - prev.opportunity.market_prob_a)
-        return edge_change >= EDGE_CHANGE_THRESHOLD or price_change >= PRICE_CHANGE_THRESHOLD
-
-    # -----------------------------------------------------------------------
     # Background scan loop
     # -----------------------------------------------------------------------
     @tasks.loop(minutes=SCAN_INTERVAL_MINUTES)
@@ -359,22 +341,23 @@ class LoLEdgeBot(discord.Client):
                 n_recorded = record_prices(opportunities)
                 logger.info(f"  Recorded {n_recorded} price snapshots")
 
-            # Run live deployment engine (paper mode) + post decision cards
+            # Run live deployment engine (paper mode)
             try:
                 from polymarket.live_engine import run_cycle
                 import sqlite3 as _sql
 
                 cycle = run_cycle()
 
+                # Only notify when a bet is actually placed (not suppressed evaluations)
                 channel = self.get_channel(self.channel_id)
-                if channel and (cycle["bets_placed"] > 0 or cycle["suppressed"] > 0):
-                    # Post decision cards for new evaluations
+                if channel and cycle["bets_placed"] > 0:
                     _conn = _sql.connect(DB_PATH, timeout=10)
                     recent = _conn.execute(
                         "SELECT market_id, bet_team, entry_price, final_size, edge, "
                         "model_prob, open_implied_prob, suppressed_reason, bet_side "
-                        "FROM live_bets ORDER BY id DESC LIMIT ?",
-                        (cycle["bets_placed"] + cycle["suppressed"],),
+                        "FROM live_bets WHERE suppressed_reason IS NULL "
+                        "ORDER BY id DESC LIMIT ?",
+                        (cycle["bets_placed"],),
                     ).fetchall()
                     for row in recent:
                         mid, bt, ep, fs, edg, mp, oip, sr, _bs = row
@@ -389,20 +372,20 @@ class LoLEdgeBot(discord.Client):
                         gates = {
                             "Same-region": bool(same_r),
                             "Edge > 10%": (edg or 0) >= 0.10,
-                            "Roster stable": sr != "roster_swap" if sr else True,
-                            "Liquidity": sr != "no_liquidity" if sr else True,
+                            "Roster stable": True,
+                            "Liquidity": True,
                         }
                         card = build_decision_card(
                             market_id=mid, team_a=ta, team_b=tb, league=lg or "",
                             model_prob=mp or 0, open_prob=oip or 0, edge=edg or 0,
-                            gates=gates, bet_placed=(sr is None and ep and ep > 0),
+                            gates=gates, bet_placed=True,
                             bet_team=bt, entry_price=ep, stake=fs,
-                            suppress_reason=sr,
+                            suppress_reason=None,
                         )
                         await channel.send(embed=card)
                     _conn.close()
 
-                    # Check and post alerts
+                    # Only check alerts when something happened
                     for alert in check_alerts():
                         await channel.send(embed=alert)
 
@@ -415,37 +398,6 @@ class LoLEdgeBot(discord.Client):
 
             if not opportunities:
                 logger.info("  No LoL markets found")
-                return
-
-            signals = find_edges(opportunities, min_edge=MIN_EDGE)
-            logger.info(f"  {len(signals)} +EV signals found")
-
-            channel = self.get_channel(self.channel_id)
-            if not channel:
-                logger.error(f"Channel {self.channel_id} not found — check DISCORD_CHANNEL_ID")
-                return
-
-            for sig in signals:
-                if self._should_alert(sig):
-                    embed = self._build_embed(sig)
-                    await channel.send(embed=embed)
-                    self._notified[sig.opportunity.market_id] = sig
-                    logger.info(f"  Alerted: {sig.opportunity.db_team_a} vs {sig.opportunity.db_team_b} (edge={sig.edge:.1%})")
-
-                    if sig.cross_region:
-                        await channel.send(
-                            f"⚠️ **Cross-region matchup** — model prediction is unreliable. "
-                            f"Skipping auto-bet. Use external analysis for this market."
-                        )
-                        continue
-
-                    trade = place_bet(sig)
-                    if trade:
-                        await channel.send(
-                            f"**Paper bet placed:** ${trade.amount:.2f} on "
-                            f"**{trade.bet_team}** @ {trade.entry_price:.0%} "
-                            f"(edge: {trade.edge:.1%}, Kelly: {trade.kelly_fraction:.1%})"
-                        )
 
         except Exception as e:
             logger.error(f"Scan loop error: {e}")

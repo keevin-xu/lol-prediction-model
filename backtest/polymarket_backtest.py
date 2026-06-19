@@ -30,7 +30,10 @@ from urllib3.util.retry import Retry
 _ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_ROOT))
 
-from model.predict import predict_match
+from backtest.backtest import ELOTracker, load_matches
+from model.calibration import PlattCalibrator
+from model.predict import check_cross_region
+from model.pro_elo import HALF_LIFE_DAYS, compute_regional_offsets, get_team_soloq_elos
 from scrapers.team_matcher import match_team_name
 
 DB_PATH = _ROOT / "db" / "lol_model.db"
@@ -39,7 +42,8 @@ GAMMA_API = "https://gamma-api.polymarket.com"
 CLOB_API = "https://clob.polymarket.com"
 
 T2_KEYWORDS = [
-    "lck challengers", "tcl", "ljl", "nacl", "lfl", "nlc", "emea masters",
+    "lck challengers", "tcl", "ljl", "nacl", "north american challengers",
+    "lfl", "nlc", "emea masters",
     "pcs", "vcs", "superliga", "prime league", "hitpoint", "road of legends",
 ]
 
@@ -133,26 +137,21 @@ def run_backtest(
     bankroll_cap: float = DEFAULT_BANKROLL_CAP,
     starting_bankroll: float = DEFAULT_BANKROLL,
 ) -> Tuple[List[Dict], Dict]:
-    """Run full backtest with realistic liquidity model. Returns (trades, summary)."""
+    """Run full backtest with walk-forward ELOs (no lookahead). Returns (trades, summary)."""
     session = _make_session()
 
     conn = sqlite3.connect(DB_PATH)
     db_teams = [r[0] for r in conn.execute("SELECT team_name FROM teams").fetchall()]
-    team_games = {
-        r[0]: r[1]
-        for r in conn.execute("SELECT team_name, games_played FROM teams").fetchall()
+    team_leagues = {
+        r[0]: r[1] or ""
+        for r in conn.execute("SELECT team_name, league FROM teams").fetchall()
     }
     conn.close()
 
     events = fetch_resolved_markets(session)
 
-    trades = []
-    bankroll = starting_bankroll
-    peak = starting_bankroll
-    max_dd = 0.0
-    streak = 0
-    max_streak = 0
-    markets_checked = 0
+    # Phase 1: collect raw market data from API (no model predictions yet)
+    raw_markets = []
 
     for event in events:
         title = event.get("title", "").lower()
@@ -194,10 +193,7 @@ def run_backtest(
             db_b = match_team_name(team_b, db_teams, source="polymarket")
             if not db_a or not db_b:
                 continue
-            if team_games.get(db_a, 0) < MIN_TEAM_GAMES or team_games.get(db_b, 0) < MIN_TEAM_GAMES:
-                continue
 
-            # Pull price trajectory
             try:
                 r2 = session.get(
                     f"{CLOB_API}/prices-history",
@@ -215,105 +211,177 @@ def run_backtest(
             prices_arr = [h["p"] for h in hist]
             times_arr = [h["t"] for h in hist]
             match_start_idx = detect_match_start(prices_arr)
-
-            pred = predict_match(db_a, db_b)
-            model_a = pred["p_a"]
-            actual = 1.0 if winner == team_a else 0.0
-
-            if pred.get("cross_region", False):
-                continue
-
-            open_price = prices_arr[0]
-            pre_match_close = prices_arr[match_start_idx]
-
-            edge_a = model_a - open_price
-            edge_b = (1.0 - model_a) - (1.0 - open_price)
-            if abs(edge_a) >= abs(edge_b):
-                edge = abs(edge_a)
-                bet_on_a = edge_a > 0
-            else:
-                edge = abs(edge_b)
-                bet_on_a = False
-
-            if edge < threshold:
-                continue
-
-            volume = float(m.get("volumeNum", 0) or m.get("volume", 0) or 0)
-            model_p = model_a if bet_on_a else (1.0 - model_a)
-
-            # Realistic execution model
-            cost = estimate_opening_cost(volume)
-            fillable = estimate_fillable_at_open(volume)
-
-            raw_open = open_price if bet_on_a else 1.0 - open_price
-            entry = min(raw_open + cost, 0.99)
-
-            # Kelly sizing
-            if 0 < entry < 1:
-                b_odds = (1.0 / entry) - 1.0
-                kelly = max(0.0, min((model_p * b_odds - (1.0 - model_p)) / b_odds, kelly_max))
-            else:
-                kelly = 0.0
-
-            kelly_size = bankroll * kelly
-            cap_size = bankroll * bankroll_cap
-            size = round(min(kelly_size, cap_size, fillable), 2)
-            if size < 1.0:
-                continue
-
-            won = (bet_on_a and actual == 1.0) or (not bet_on_a and actual == 0.0)
-            pnl = round(size * (1.0 / entry - 1.0) if won else -size, 2)
-            bankroll = round(bankroll + pnl, 2)
-
-            if bankroll > peak:
-                peak = bankroll
-            dd = (peak - bankroll) / peak if peak > 0 else 0
-            max_dd = max(max_dd, dd)
-
-            if not won:
-                streak += 1
-                max_streak = max(max_streak, streak)
-            else:
-                streak = 0
-
-            pmc = pre_match_close if bet_on_a else 1.0 - pre_match_close
-            op = open_price if bet_on_a else 1.0 - open_price
-            clv = round(pmc - op, 4)
-
             match_date = datetime.fromtimestamp(times_arr[0]).strftime("%Y-%m-%d")
-            bet_team = db_a if bet_on_a else db_b
-            opp_team = db_b if bet_on_a else db_a
-            league = next((kw for kw in T2_KEYWORDS if kw in title), "")
-            bo_type = "bo3" if "(bo3)" in ql else ("bo5" if "(bo5)" in ql else "bo1")
 
-            trades.append({
-                "trade_num": len(trades) + 1,
+            raw_markets.append({
                 "date": match_date,
-                "league": league,
-                "format": bo_type,
-                "bet_team": bet_team,
-                "opponent": opp_team,
-                "model_prob": round(model_p, 3),
-                "market_open": round(op, 3),
-                "edge": round(edge, 3),
-                "cost": round(cost, 3),
-                "entry_price": round(entry, 3),
-                "fillable_est": round(fillable, 2),
-                "stake": round(size, 2),
-                "result": "WIN" if won else "LOSS",
-                "pnl": pnl,
-                "bankroll_after": bankroll,
-                "clv": clv,
-                "prematch_close": round(pmc, 3),
-                "beat_close": "Y" if clv > 0 else "N",
-                "market_volume": round(volume, 0),
+                "title": title,
+                "ql": ql,
+                "db_a": db_a,
+                "db_b": db_b,
+                "team_a_raw": team_a,
                 "winner": winner,
+                "open_price": prices_arr[0],
+                "pre_match_close": prices_arr[match_start_idx],
+                "volume": float(m.get("volumeNum", 0) or m.get("volume", 0) or 0),
             })
-
-            markets_checked += 1
-            if markets_checked % 50 == 0:
-                logger.info(f"  {markets_checked} bets placed…")
             time.sleep(0.15)
+
+    logger.info(f"  {len(raw_markets)} raw markets collected from API")
+
+    # Phase 2: walk-forward prediction — advance ELO tracker through matches,
+    # predict each market using ONLY prior match data (no lookahead)
+    raw_markets.sort(key=lambda m: m["date"])
+    all_matches = load_matches()
+    soloq_baselines = get_team_soloq_elos()
+    regional_offsets = compute_regional_offsets()
+    calibrator = PlattCalibrator()
+    calibrator.load()
+
+    tracker = ELOTracker(
+        K=64, blend_k=5, scale=400, half_life_days=HALF_LIFE_DAYS,
+        soloq_baselines=soloq_baselines, regional_offsets=regional_offsets,
+    )
+
+    match_idx = 0
+    raw_candidates = []
+
+    for market in raw_markets:
+        # Advance tracker through all matches BEFORE this market's date
+        while match_idx < len(all_matches) and all_matches[match_idx][1] < market["date"]:
+            gameid, date, league, blue, red, winner = all_matches[match_idx]
+            tracker.update(blue, red, winner, league, date)
+            match_idx += 1
+
+        db_a, db_b = market["db_a"], market["db_b"]
+
+        # Walk-forward game count check (not final DB count)
+        if tracker.games.get(db_a, 0) < MIN_TEAM_GAMES or tracker.games.get(db_b, 0) < MIN_TEAM_GAMES:
+            continue
+
+        region_check = check_cross_region(db_a, db_b)
+        if region_check["cross_region"]:
+            continue
+
+        # Point-in-time prediction using walk-forward ELOs
+        league_a = team_leagues.get(db_a, "")
+        p_a_raw = tracker.predict(db_a, db_b, league_a, market["date"])
+        model_a = calibrator.calibrate(p_a_raw) if calibrator.fitted else p_a_raw
+
+        actual = 1.0 if market["winner"] == market["team_a_raw"] else 0.0
+        open_price = market["open_price"]
+        pre_match_close = market["pre_match_close"]
+
+        edge_a = model_a - open_price
+        edge_b = (1.0 - model_a) - (1.0 - open_price)
+        if abs(edge_a) >= abs(edge_b):
+            edge = abs(edge_a)
+            bet_on_a = edge_a > 0
+        else:
+            edge = abs(edge_b)
+            bet_on_a = False
+
+        if edge < threshold:
+            continue
+
+        volume = market["volume"]
+        model_p = model_a if bet_on_a else (1.0 - model_a)
+        cost = estimate_opening_cost(volume)
+        fillable = estimate_fillable_at_open(volume)
+        raw_open = open_price if bet_on_a else 1.0 - open_price
+        entry = min(raw_open + cost, 0.99)
+        won = (bet_on_a and actual == 1.0) or (not bet_on_a and actual == 0.0)
+        pmc = pre_match_close if bet_on_a else 1.0 - pre_match_close
+        clv = round(pmc - raw_open, 4)
+
+        raw_candidates.append({
+            "date": market["date"],
+            "league": next((kw for kw in T2_KEYWORDS if kw in market["title"]), ""),
+            "format": "bo3" if "(bo3)" in market["ql"] else ("bo5" if "(bo5)" in market["ql"] else "bo1"),
+            "bet_team": db_a if bet_on_a else db_b,
+            "opponent": db_b if bet_on_a else db_a,
+            "model_prob": round(model_p, 3),
+            "market_open": round(raw_open, 3),
+            "edge": round(edge, 3),
+            "cost": round(cost, 3),
+            "entry_price": round(entry, 3),
+            "fillable_est": round(fillable, 2),
+            "won": won,
+            "clv": clv,
+            "prematch_close": round(pmc, 3),
+            "market_volume": round(volume, 0),
+            "winner": market["winner"],
+        })
+
+    logger.info(
+        f"  {len(raw_candidates)} trades pass gates (walk-forward, {match_idx}/{len(all_matches)} matches processed)"
+    )
+
+    # Phase 2: sort by date, then simulate with bankroll-dependent sizing
+    raw_candidates.sort(key=lambda c: c["date"])
+
+    trades = []
+    bankroll = starting_bankroll
+    peak = starting_bankroll
+    max_dd = 0.0
+    streak = 0
+    max_streak = 0
+
+    for c in raw_candidates:
+        entry = c["entry_price"]
+        model_p = c["model_prob"]
+        fillable = c["fillable_est"]
+
+        if 0 < entry < 1:
+            b_odds = (1.0 / entry) - 1.0
+            kelly = max(0.0, min((model_p * b_odds - (1.0 - model_p)) / b_odds, kelly_max))
+        else:
+            kelly = 0.0
+
+        kelly_size = bankroll * kelly
+        cap_size = bankroll * bankroll_cap
+        size = round(min(kelly_size, cap_size, fillable), 2)
+        if size < 1.0:
+            continue
+
+        won = c["won"]
+        pnl = round(size * (1.0 / entry - 1.0) if won else -size, 2)
+        bankroll = round(bankroll + pnl, 2)
+
+        if bankroll > peak:
+            peak = bankroll
+        dd = (peak - bankroll) / peak if peak > 0 else 0
+        max_dd = max(max_dd, dd)
+
+        if not won:
+            streak += 1
+            max_streak = max(max_streak, streak)
+        else:
+            streak = 0
+
+        trades.append({
+            "trade_num": len(trades) + 1,
+            "date": c["date"],
+            "league": c["league"],
+            "format": c["format"],
+            "bet_team": c["bet_team"],
+            "opponent": c["opponent"],
+            "model_prob": c["model_prob"],
+            "market_open": c["market_open"],
+            "edge": c["edge"],
+            "cost": c["cost"],
+            "entry_price": c["entry_price"],
+            "fillable_est": c["fillable_est"],
+            "stake": round(size, 2),
+            "result": "WIN" if won else "LOSS",
+            "pnl": pnl,
+            "bankroll_after": bankroll,
+            "clv": c["clv"],
+            "prematch_close": c["prematch_close"],
+            "beat_close": "Y" if c["clv"] > 0 else "N",
+            "market_volume": c["market_volume"],
+            "winner": c["winner"],
+        })
 
     # Compute summary
     if not trades:
@@ -369,7 +437,7 @@ def write_csv(trades: List[Dict], path: Optional[Path] = None) -> str:
 def print_report(summary: Dict, threshold: float) -> None:
     s = summary
     print(f"\n{'='*60}")
-    print(f"  POLYMARKET OPENING-LINE BACKTEST")
+    print(f"  POLYMARKET OPENING-LINE BACKTEST (walk-forward, no lookahead)")
     print(f"{'='*60}")
     print(f"  Rule:      Same-region T2, >{threshold:.0%} edge, bet at open")
     print(f"  Costs:     3% (spread + slippage)")

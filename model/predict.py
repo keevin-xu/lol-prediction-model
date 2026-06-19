@@ -154,7 +154,7 @@ def bo_series_probability(p: float, best_of: int) -> float:
 def predict_match(
     team_a: str,
     team_b: str,
-    blend_k: int = 10,
+    blend_k: int = 5,
     scale: float = 400.0,
     best_of: int = 1,
     side_a: Optional[str] = None,

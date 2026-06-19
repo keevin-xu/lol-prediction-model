@@ -116,10 +116,10 @@ def main() -> None:
     }
     conn.close()
 
-    logger.info(f"Blended ratings for {len(sorted_teams)} teams (blend_k=10):")
+    logger.info(f"Blended ratings for {len(sorted_teams)} teams (blend_k=5):")
     for name, blended in sorted_teams[:20]:
         pro_elo, gp = team_data.get(name, (DEFAULT_ELO, 0))
-        alpha = gp / (gp + 10)
+        alpha = gp / (gp + 5)
         soloq = soloq_elos.get(name)
         sq_str = f"soloq={soloq:.0f}" if soloq else "no soloq"
         logger.info(

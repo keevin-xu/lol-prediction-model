@@ -7,19 +7,18 @@
 
 Predicts win probabilities for League of Legends Tier 2 professional matches and bets against Polymarket opening lines where the model has edge.
 
-**The strategy:** Polymarket opening lines on T2 LoL are only 61% accurate. Our ELO model is 67% accurate. By betting at market open on same-region matches where the model disagrees by >10%, we capture edge that decays as sharp money arrives.
+**The strategy:** Polymarket opening lines on T2 LoL are only 61% accurate. Our ELO model is 65.3% accurate (walk-forward, no lookahead). By betting at market open on same-region matches where the model disagrees by >10%, we capture edge that decays as sharp money arrives.
 
-**Backtested P&L (177 trades, realistic liquidity model):**
+**Backtested P&L (147 trades, walk-forward ELOs, realistic liquidity):**
 ```
-Hit rate:     70.6% (CI: 63.8% – 77.4%)
-ROI per bet:  +37.5% (CI: +23.4% – +51.4%)
-P&L:          $1,000 → $3,288 (+229%)   |   $5,000 → $15,110 (+202%)
-Max drawdown: 12.9%
-Mean CLV:     +0.150 (line drifts toward our position 72% of the time)
+Hit rate:     65.3% (CI: 57.1% – 72.8%)
+ROI per bet:  +25.0% (CI: +9.4% – +40.4%)
+P&L:          $1,000 → $1,912 (+91%)   |   $5,000 → $8,975 (+80%)
+Max drawdown: 12.7%
+Mean CLV:     +0.132 (line drifts toward our position 71% of the time)
 ```
+Walk-forward: model uses only matches before each market's date. No lookahead.
 Liquidity model: volume-dependent costs (3-8%), opening fillable capped at 1-3% of total volume.
-
-**Adversarial validation:** Survives out-of-sample holdout (73.3% hit, +39.2% ROI), cost stress (+5%), threshold perturbation, and league-removal tests. CLV coherent (83.7% win rate when line confirms us). No time decay — Q2 2026 stronger than Q1.
 
 ---
 
@@ -72,9 +71,9 @@ Liquidity model: volume-dependent costs (3-8%), opening fillable capped at 1-3% 
 
 1. **Polymarket closing prices are 96% accurate** — but this is in-game contamination. Markets stay open during matches.
 2. **Opening prices are only 61% accurate** — soft lines, thin liquidity, no sharp money yet.
-3. **The model beats the opening line** — 67% vs 61% accuracy, Brier 0.2011 vs 0.2178.
+3. **The model beats the opening line** — 65.3% vs 61% accuracy (walk-forward, no lookahead). Previously reported as 67% but that used final ELOs (lookahead bias).
 4. **V3 model (107 features) gave 0% improvement** — dragon control, baron rates, vision, draft quality are all redundant with ELO. The accuracy ceiling from pre-match public data is ~64%.
-5. **The edge is in WHEN you bet, not how good the model is.** A 64% model beats a 61% opening line.
+5. **The edge is in WHEN you bet, not how good the model is.** A 63-65% model beats a 61% opening line.
 6. **Live in-game betting is not viable** — mid-game T2 liquidity ($352) is worse than at open ($979).
 
 ---
@@ -121,7 +120,7 @@ lol-prediction-model/
 │   └── lol_model.db                  ← SQLite database (not in git)
 ├── data/
 │   ├── raw/                          ← scraped data (not in git)
-│   ├── backtest_trades.csv           ← 177-trade backtest log
+│   ├── backtest_trades.csv           ← 147-trade walk-forward backtest log
 │   └── upcoming_matches.csv          ← match tracking spreadsheet
 ├── docs/
 │   ├── session_2026_06_18.md         ← full session report
@@ -229,21 +228,22 @@ Brier:       0.2256
 Best params: K=64, blend_k=5, scale=400, half_life=270d
 ```
 
-**Opening-line P&L backtest (177 Polymarket trades, realistic liquidity):**
+**Opening-line P&L backtest (147 Polymarket trades, walk-forward ELOs, realistic liquidity):**
 ```
 Strategy:    Same-region T2, >10% edge, bet at market open
+ELOs:        Walk-forward — only matches before each market's date (no lookahead)
 Costs:       Volume-dependent (3% liquid → 8% thin markets)
 Fillable:    1-3% of total volume at open ($20-$300 per bet)
 Sizing:      Quarter-Kelly, 2% bankroll cap, depth-gated
 
-Trades:      177 (125W / 52L)
-Hit rate:    70.6% (CI: 63.8% – 77.4%)
-ROI/bet:     +37.5% (CI: +23.4% – +51.4%)
-P&L ($1K):   $1,000 → $3,288 (+229%)
-P&L ($5K):   $5,000 → $15,110 (+202%)
-Max DD:      12.9%
+Trades:      147 (96W / 51L)
+Hit rate:    65.3% (CI: 57.1% – 72.8%)
+ROI/bet:     +25.0% (CI: +9.4% – +40.4%)
+P&L ($1K):   $1,000 → $1,912 (+91%)
+P&L ($5K):   $5,000 → $8,975 (+80%)
+Max DD:      12.7%
 Max streak:  3 losses
-CLV:         +0.150 (72% beat pre-match close)
+CLV:         +0.132 (71% beat pre-match close)
 ```
 
 **Trade logs:** `data/backtest_trades.csv` (default $1K), `data/backtest_trades_5000.csv` ($5K).
@@ -299,7 +299,7 @@ python polymarket/bot.py
 
 | Decision | Choice | Reason |
 |---|---|---|
-| Strategy | Bet opening lines | Opening 61% accurate, model 67% — edge exists at open |
+| Strategy | Bet opening lines | Opening 61% accurate, model 65.3% walk-forward — edge exists at open |
 | Edge threshold | >10% | Plateau from adversarial sweep; 5-10% eaten by costs |
 | Region filter | Same-region only | Cross-region: 43% hit, negative ROI |
 | Sizing | Quarter-Kelly | Conservative for thin markets + unvalidated live data |

@@ -416,11 +416,19 @@ def update_clv(session: Optional[requests.Session] = None) -> int:
         else:
             pnl = round(-size, 2)
 
-        # Get pre-match close from our price snapshots
-        prematch_row = conn.execute(
-            "SELECT price_a FROM polymarket_prices WHERE market_id = ? ORDER BY timestamp DESC LIMIT 1",
-            (market_id,),
-        ).fetchone()
+        # Get pre-match close: last snapshot BEFORE match_start_ts (avoids in-game contamination)
+        if match_start_ts:
+            prematch_row = conn.execute(
+                "SELECT price_a FROM polymarket_prices WHERE market_id = ? AND timestamp < ? ORDER BY timestamp DESC LIMIT 1",
+                (market_id, match_start_ts),
+            ).fetchone()
+        else:
+            prematch_row = None
+        if not prematch_row:
+            prematch_row = conn.execute(
+                "SELECT price_a FROM polymarket_prices WHERE market_id = ? ORDER BY timestamp ASC LIMIT 1",
+                (market_id,),
+            ).fetchone()
         prematch_close = prematch_row[0] if prematch_row else entry_price
 
         if bet_side == "team_b":
