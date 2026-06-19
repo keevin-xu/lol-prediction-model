@@ -9,14 +9,15 @@ Predicts win probabilities for League of Legends Tier 2 professional matches and
 
 **The strategy:** Polymarket opening lines on T2 LoL are only 61% accurate. Our ELO model is 67% accurate. By betting at market open on same-region matches where the model disagrees by >10%, we capture edge that decays as sharp money arrives.
 
-**Backtested P&L (177 trades on real Polymarket markets):**
+**Backtested P&L (177 trades, realistic liquidity model):**
 ```
 Hit rate:     70.6% (CI: 63.8% – 77.4%)
-ROI per bet:  +40.4% (CI: +26.1% – +54.8%)
-P&L:          $1,000 → $3,855 (+286%)
-Max drawdown: 11.0%
-Mean CLV:     +0.150 (line drifts toward our position)
+ROI per bet:  +37.5% (CI: +23.4% – +51.4%)
+P&L:          $1,000 → $3,288 (+229%)   |   $5,000 → $15,110 (+202%)
+Max drawdown: 12.9%
+Mean CLV:     +0.150 (line drifts toward our position 72% of the time)
 ```
+Liquidity model: volume-dependent costs (3-8%), opening fillable capped at 1-3% of total volume.
 
 **Adversarial validation:** Survives out-of-sample holdout (73.3% hit, +39.2% ROI), cost stress (+5%), threshold perturbation, and league-removal tests. CLV coherent (83.7% win rate when line confirms us). No time decay — Q2 2026 stronger than Q1.
 
@@ -228,22 +229,25 @@ Brier:       0.2256
 Best params: K=64, blend_k=5, scale=400, half_life=270d
 ```
 
-**Opening-line P&L backtest (177 Polymarket trades):**
+**Opening-line P&L backtest (177 Polymarket trades, realistic liquidity):**
 ```
 Strategy:    Same-region T2, >10% edge, bet at market open
-Costs:       3% (spread + slippage)
+Costs:       Volume-dependent (3% liquid → 8% thin markets)
+Fillable:    1-3% of total volume at open ($20-$300 per bet)
 Sizing:      Quarter-Kelly, 2% bankroll cap, depth-gated
 
 Trades:      177 (125W / 52L)
 Hit rate:    70.6% (CI: 63.8% – 77.4%)
-ROI/bet:     +40.4% (CI: +26.1% – +54.8%)
-P&L:         $1,000 → $3,855 (+286%)
-Max DD:      11.0%
+ROI/bet:     +37.5% (CI: +23.4% – +51.4%)
+P&L ($1K):   $1,000 → $3,288 (+229%)
+P&L ($5K):   $5,000 → $15,110 (+202%)
+Max DD:      12.9%
 Max streak:  3 losses
 CLV:         +0.150 (72% beat pre-match close)
 ```
 
-**Trade log:** `data/backtest_trades.csv` — 177 rows with full detail per trade.
+**Trade logs:** `data/backtest_trades.csv` (default $1K), `data/backtest_trades_5000.csv` ($5K).
+Generate for any bankroll: `python backtest/polymarket_backtest.py --bankroll 10000`
 
 ---
 
@@ -264,8 +268,11 @@ python model/predict.py "Solary" "Galions"
 python model/predict.py "Solary" "Galions" --bo 5 --side blue
 
 # Backtesting
-python backtest/backtest.py --optimize
-python backtest/pnl_backtest.py --sweep
+python backtest/backtest.py --optimize                 # ELO grid search
+python backtest/polymarket_backtest.py                 # P&L vs real Polymarket ($1K)
+python backtest/polymarket_backtest.py --bankroll 5000 # P&L with $5K (own CSV)
+python backtest/polymarket_backtest.py --bankroll 10000 # P&L with $10K
+python backtest/pnl_backtest.py --sweep                # simulated market sweep
 
 # Live engine
 python polymarket/live_engine.py --status
