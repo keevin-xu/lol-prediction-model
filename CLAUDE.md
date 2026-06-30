@@ -28,7 +28,7 @@ Liquidity model: volume-dependent costs (3-8%), opening fillable capped at 1-3% 
 
 | Component | Status | Notes |
 |---|---|---|
-| OE scraper | ✅ Done | 20,587 T2 matches (2021–2026) in SQLite |
+| OE scraper | ✅ Done | `db/lol_model.db` holds 2024–2026 scraper data only — see note below |
 | TTP scraper | ✅ Done | 2,291 players with soloq ratings |
 | Roster scraper | ✅ Done | 598 roster entries across 97 teams |
 | Riot API scraper | ✅ Done | Backfills soloq for unmatched roster players |
@@ -55,6 +55,19 @@ Liquidity model: volume-dependent costs (3-8%), opening fillable capped at 1-3% 
 | Patch-freshness sizing | ❌ Dead | Zero P&L impact, identical hit rates across groups |
 | Live in-game model | ❌ No-go | Mid-game liquidity worse than open |
 | T1 model (LEC/LCK/LPL) | ❌ Not viable yet | Model 62.4% on LEC, line already 66-75% by 2-4h pre-match |
+
+**Two different match counts exist in this project — don't conflate them:**
+- `db/lol_model.db`'s `matches` table — fed by `scrapers/oe_scraper.py`, whose `YEARS = [2024, 2025, 2026]` caps it to 2024–2026 only. This is what `pro_elo.py` and `live_engine.py` actually read at runtime.
+- `data/newmetrics/games.csv` — a frozen, gitignored research dataset, 20,587 T2 games spanning 2021–2026. This is what the V2 model deep-dive above was validated against. Never loaded into `lol_model.db`.
+
+A prior edit to this doc put the 20,587/2021–2026 figure on the SQLite line, implying the live DB had that history. It never did. If the two numbers disagree again later, this is why — check which file is actually being read before assuming data was lost.
+
+**`db/lol_model.db` is gitignored-in-spirit (see Coding Conventions) but currently still tracked in git** — don't add to the confusion by assuming a commit makes it safe; treat it as having no reliable backup. To rebuild the live DB from scratch (e.g. after a bad `git reset --hard`):
+```bash
+python3 scrapers/oe_scraper.py --tier all   # repopulates matches table, 2024–2026, T1+T2
+python3 model/pro_elo.py                    # rebuilds the teams table (ELOs) from matches
+```
+`--tier all` is the part that's easy to forget — the default is `t2`, which silently drops LCK/LPL/LCS and breaks any T1 prediction test.
 
 ---
 
