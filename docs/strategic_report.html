@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LoL Polymarket Edge — Strategic Report</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  .page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 48px 32px;
+    border-bottom: 1px solid #1e2533;
+  }
+  .page:last-child { border-bottom: none; }
+
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-bottom: 6px;
+    letter-spacing: -0.3px;
+  }
+  h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #cbd5e1;
+    margin-bottom: 4px;
+    margin-top: 40px;
+    letter-spacing: -0.2px;
+    border-left: 3px solid #3b82f6;
+    padding-left: 12px;
+  }
+  h2:first-of-type { margin-top: 0; }
+  h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 16px;
+    margin-top: 32px;
+  }
+  p {
+    color: #94a3b8;
+    margin-bottom: 12px;
+    max-width: 740px;
+  }
+  .lead {
+    font-size: 16px;
+    color: #cbd5e1;
+    max-width: 740px;
+    margin-bottom: 20px;
+    line-height: 1.7;
+  }
+
+  /* Header */
+  .report-header {
+    background: linear-gradient(135deg, #0f1117 0%, #1a1f2e 100%);
+    border-bottom: 1px solid #1e2533;
+    padding: 48px 32px 40px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  .report-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #f1f5f9;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+  }
+  .report-subtitle {
+    font-size: 16px;
+    color: #64748b;
+    margin-bottom: 24px;
+  }
+  .tag-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tag {
+    background: #1e2533;
+    color: #64748b;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: 500;
+    border: 1px solid #2d3748;
+  }
+  .tag.warn {
+    background: #2d1f0a;
+    color: #f59e0b;
+    border-color: #451a03;
+  }
+  .tag.ok {
+    background: #0f2117;
+    color: #34d399;
+    border-color: #064e3b;
+  }
+
+  /* KPI row */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .kpi {
+    background: #1a1f2e;
+    border: 1px solid #1e2533;
+    border-radius: 8px;
+    padding: 20px 16px;
+  }
+  .kpi-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #64748b;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .kpi-value {
+    font-size: 26px;
+    font-weight: 700;
+    color: #f1f5f9;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .kpi-note {
+    font-size: 11px;
+    color: #475569;
+    line-height: 1.4;
+  }
+  .kpi-value.warn { color: #f59e0b; }
+  .kpi-value.neg { color: #f87171; }
+  .kpi-value.pos { color: #34d399; }
+
+  /* Charts */
+  .chart-wrap {
+    background: #1a1f2e;
+    border: 1px solid #1e2533;
+    border-radius: 8px;
+    padding: 24px;
+    margin: 20px 0;
+    position: relative;
+  }
+  .chart-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #cbd5e1;
+    margin-bottom: 4px;
+  }
+  .chart-caption {
+    font-size: 12px;
+    color: #475569;
+    margin-bottom: 18px;
+    line-height: 1.5;
+    max-width: 680px;
+  }
+  canvas { max-height: 320px; }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    margin: 20px 0;
+  }
+  th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: #475569;
+    font-weight: 600;
+    padding: 10px 14px;
+    border-bottom: 1px solid #1e2533;
+    background: #141820;
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #141820;
+    color: #94a3b8;
+    vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #1e2533; }
+  td.num { font-variant-numeric: tabular-nums; font-family: 'SF Mono', 'Fira Code', monospace; }
+  td.pos { color: #34d399; }
+  td.neg { color: #f87171; }
+  td.warn { color: #f59e0b; }
+  td.bold { color: #e2e8f0; font-weight: 600; }
+
+  /* Callouts */
+  .callout {
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 20px 0;
+    border-left: 4px solid;
+    max-width: 740px;
+  }
+  .callout-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .callout p { margin: 0; font-size: 13.5px; max-width: none; }
+  .callout.warn {
+    background: #1c1505;
+    border-color: #f59e0b;
+  }
+  .callout.warn .callout-title { color: #f59e0b; }
+  .callout.warn p { color: #ca8a04; }
+  .callout.info {
+    background: #0f1b2d;
+    border-color: #3b82f6;
+  }
+  .callout.info .callout-title { color: #60a5fa; }
+  .callout.info p { color: #93c5fd; }
+  .callout.ok {
+    background: #0a1f14;
+    border-color: #34d399;
+  }
+  .callout.ok .callout-title { color: #34d399; }
+  .callout.ok p { color: #6ee7b7; }
+
+  /* Two-col */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 20px 0;
+  }
+  @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* Status table */
+  .status-table { margin: 20px 0; }
+  .status-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid #1e2533;
+  }
+  .status-row:last-child { border-bottom: none; }
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+  .dot-green { background: #34d399; }
+  .dot-yellow { background: #f59e0b; }
+  .dot-red { background: #f87171; }
+  .status-label {
+    font-weight: 600;
+    color: #cbd5e1;
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+  .status-desc {
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.5;
+  }
+
+  /* Section label */
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: #3b82f6;
+    margin-bottom: 10px;
+  }
+
+  /* Divider */
+  hr {
+    border: none;
+    border-top: 1px solid #1e2533;
+    margin: 32px 0;
+  }
+
+  /* Page nav */
+  .page-nav {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid #1e2533;
+    max-width: 960px;
+    margin: 0 auto;
+    background: #0f1117;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav-item {
+    padding: 14px 20px;
+    font-size: 13px;
+    color: #64748b;
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+  .nav-item:hover {
+    color: #94a3b8;
+    background: #141820;
+  }
+
+  /* Emphasis inline */
+  .em { color: #e2e8f0; font-weight: 600; }
+  .em-warn { color: #f59e0b; font-weight: 600; }
+  .em-pos { color: #34d399; font-weight: 600; }
+  .em-neg { color: #f87171; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="report-header">
+  <div class="section-label">Strategic Research Brief · June 2026</div>
+  <div class="report-title">LoL Polymarket Edge Report</div>
+  <div class="report-subtitle">Betting soft opening lines before sharp money arrives</div>
+  <div class="tag-row">
+    <span class="tag ok">Walk-forward validated</span>
+    <span class="tag ok">T2: Paper trading live</span>
+    <span class="tag warn">T1: Depth unmeasured</span>
+    <span class="tag warn">Cost model unvalidated</span>
+    <span class="tag">20,587 T2 matches · 4,556 T1 matches</span>
+    <span class="tag">662 resolved PM markets</span>
+  </div>
+</div>
+
+<!-- Nav -->
+<nav class="page-nav">
+  <a href="#core" class="nav-item">1. Core Idea</a>
+  <a href="#accuracy" class="nav-item">2. Accuracy</a>
+  <a href="#economics" class="nav-item">3. Economics</a>
+  <a href="#scaling" class="nav-item">4. Scaling</a>
+  <a href="#status" class="nav-item">5. Status</a>
+</nav>
+
+
+<!-- ===================== PAGE 1: CORE IDEA ===================== -->
+<div class="page" id="core">
+  <div class="section-label">Section 1</div>
+  <h1>The edge is a closing window</h1>
+
+  <p class="lead">
+    The model is not exceptional (~62–64% accuracy). The Polymarket opening line is worse
+    — only 54% accurate on Tier 2 matches. The strategy bets the gap before sharp money
+    corrects the line. That window closes within hours of market open. Every metric below
+    follows from this single fact.
+  </p>
+
+  <div class="callout info">
+    <div class="callout-title">The strategic thesis</div>
+    <p>
+      A 63% model doesn't beat an efficient market. It beats a <em>54% opening line</em> that
+      hasn't been corrected yet. By 2–4 hours before match time, the line is already 66–67%
+      accurate and the model loses money betting against it. The edge is in <strong>when</strong>
+      you bet, not how good the model is.
+    </p>
+  </div>
+
+  <!-- CENTERPIECE CHART: T2 Timing Decay -->
+  <div class="chart-wrap">
+    <div class="chart-title">Edge decay over time — T2 markets (the centerpiece)</div>
+    <div class="chart-caption">
+      Model accuracy stays roughly flat (~64%). The opening line starts soft (54%) and corrects fast.
+      ROI goes from <span style="color:#34d399">+25% at open</span> to
+      <span style="color:#f87171">–23% at 4h before match</span>.
+      Source: 662 resolved Polymarket T2 markets, walk-forward ELOs, no lookahead.
+      Trade counts vary (open n=147, 4h/2h/1h n≈100–106).
+    </div>
+    <canvas id="timingChart"></canvas>
+  </div>
+
+  <!-- T1 CLV Decay -->
+  <div class="chart-wrap">
+    <div class="chart-title">T1: CLV decay from time of market creation</div>
+    <div class="chart-caption">
+      T1 markets open 6 days before the match — the line is softest at creation, corrects to near-zero
+      within 24 hours. CLV is the actual economic quantity (line drift toward our position).
+      Source: 162 edge trades from 296 resolved T1 markets, walk-forward ELOs, no lookahead.
+    </div>
+    <canvas id="t1DecayChart"></canvas>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-label">T2 Opening Line Accuracy</div>
+      <div class="kpi-value warn">54%</div>
+      <div class="kpi-note">Soft — thin liquidity, no sharp money yet</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Model Accuracy (T2)</div>
+      <div class="kpi-value">63.8%</div>
+      <div class="kpi-note">Walk-forward, 20,587 matches, no lookahead</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Line at 4h Pre-Match</div>
+      <div class="kpi-value">66–67%</div>
+      <div class="kpi-note">Model loses money past this point</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">ROI at Open</div>
+      <div class="kpi-value pos">+25%</div>
+      <div class="kpi-note">Per-bet, 147 trades, 1x cost model</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">ROI at 4h Pre-Match</div>
+      <div class="kpi-value neg">–23%</div>
+      <div class="kpi-note">Line already smarter than model</div>
+    </div>
+  </div>
+
+  <p>
+    The model accuracy is good-not-great on purpose. A 63% model that clears a 54% bar beats
+    a theoretically superior model that can't be deployed because the target market is already efficient.
+    Lower model risk is a feature: if ELO degrades 2%, the strategy survives. If the timing window
+    closes, the strategy dies — and that's the real risk to monitor.
+  </p>
+</div>
+
+
+<!-- ===================== PAGE 2: ACCURACY ===================== -->
+<div class="page" id="accuracy">
+  <div class="section-label">Section 2</div>
+  <h1>Prediction accuracy</h1>
+  <p class="lead">
+    All accuracy numbers are walk-forward — only historical matches before each prediction date
+    are used to build ELOs. There is no data leakage. A prior version with lookahead bias showed
+    65–72% accuracy; the true walk-forward number is 63–64%.
+  </p>
+
+  <div class="callout ok">
+    <div class="callout-title">Walk-forward discipline</div>
+    <p>
+      An earlier backtest used final (fully-trained) ELOs to predict past matches, inflating
+      hit rate from 65% to 72% and ROI from +25% to +40%. This was caught and fixed in June 2026.
+      All numbers below are from the corrected, no-lookahead pipeline.
+    </p>
+  </div>
+
+  <!-- Accuracy by league -->
+  <div class="chart-wrap">
+    <div class="chart-title">Model accuracy by league — T1 and T2 (walk-forward)</div>
+    <div class="chart-caption">
+      T2 uses 20,587 matches (2021–2026). T1 per-league walk-forward evaluated on matches since 2024.
+      The dashed line is the Polymarket opening line benchmark (T2: 54%, T1: 53%).
+      All ELOs use identical parameters: K=32, MOV-scaling, 270d decay, no soloq.
+    </div>
+    <canvas id="accuracyChart"></canvas>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <h3>T2 — Tier 2 Regional Leagues</h3>
+      <table>
+        <tr>
+          <th>Metric</th>
+          <th class="num">Value</th>
+        </tr>
+        <tr>
+          <td>Accuracy (walk-forward)</td>
+          <td class="num bold">63.8%</td>
+        </tr>
+        <tr>
+          <td>Brier Score</td>
+          <td class="num">0.2238</td>
+        </tr>
+        <tr>
+          <td>Calibration error (V2)</td>
+          <td class="num pos">1.0%</td>
+        </tr>
+        <tr>
+          <td>Training matches</td>
+          <td class="num">20,587</td>
+        </tr>
+        <tr>
+          <td>Eval window</td>
+          <td class="num">2024–2025</td>
+        </tr>
+        <tr>
+          <td>PM opening line acc.</td>
+          <td class="num warn">54.2%</td>
+        </tr>
+      </table>
+    </div>
+    <div>
+      <h3>T1 — LCK / LPL / LCS / LEC</h3>
+      <table>
+        <tr>
+          <th>League</th>
+          <th class="num">Model Acc.</th>
+          <th class="num">Matches</th>
+        </tr>
+        <tr>
+          <td>LCK</td>
+          <td class="num bold">67.7%</td>
+          <td class="num">1,386</td>
+        </tr>
+        <tr>
+          <td>LEC</td>
+          <td class="num">64.3%</td>
+          <td class="num">846</td>
+        </tr>
+        <tr>
+          <td>LCS</td>
+          <td class="num">62.8%</td>
+          <td class="num">349</td>
+        </tr>
+        <tr>
+          <td>LPL</td>
+          <td class="num">61.6%</td>
+          <td class="num">1,975</td>
+        </tr>
+        <tr>
+          <td><strong>Combined</strong></td>
+          <td class="num bold">64.1%</td>
+          <td class="num">4,556</td>
+        </tr>
+        <tr>
+          <td>PM opening line acc.</td>
+          <td class="num warn">53.0%</td>
+          <td class="num">(266 markets)</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <h3>What the model uses</h3>
+  <p>
+    V2 ELO: K=32, margin-of-victory scaling (mov_weight=1.5), 270-day half-life decay,
+    regional initialization offsets. No soloq, no draft features, no roster signals —
+    all tested and either null or counterproductive. Identity calibration (a=1.0, b=0.0):
+    the model's raw logistic output is already well-calibrated, and Platt scaling added nothing
+    on out-of-sample betting data.
+  </p>
+
+  <div class="callout warn">
+    <div class="callout-title">Accuracy ceiling</div>
+    <p>
+      The V3 model (107 features: dragon rates, baron rates, champion stats, vision, draft quality)
+      gave 0% accuracy gain over V1 ELO. The ceiling from publicly available pre-match data
+      appears to be ~64%. This was tested twice, with two separate approaches, and is not a
+      computation error. Future model improvements need a different data source, not more features
+      from the same source.
+    </p>
+  </div>
+</div>
+
+
+<!-- ===================== PAGE 3: ECONOMICS ===================== -->
+<div class="page" id="economics">
+  <div class="section-label">Section 3</div>
+  <h1>Backtested economics</h1>
+
+  <div class="callout warn">
+    <div class="callout-title">Critical caveat on every number below</div>
+    <p>
+      The cost model (transaction costs + fillable size at open) has <strong>never been validated
+      against a real fill</strong>. All P&L figures are simulated. At 2× modeled costs, ROI drops
+      from +110% to +51%. The cost-sensitivity range is the honest range — not the center estimate.
+      Paper trading is live; live trading has not started.
+    </p>
+  </div>
+
+  <h2>T2 — P&amp;L backtest (the primary dataset)</h2>
+
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-label">Trades</div>
+      <div class="kpi-value">220</div>
+      <div class="kpi-note">137W / 83L · Jan–May 2026</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Hit Rate</div>
+      <div class="kpi-value">62.3%</div>
+      <div class="kpi-note">Same-region T2, >10% edge at open</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Mean CLV</div>
+      <div class="kpi-value pos">+0.121</div>
+      <div class="kpi-note">65% of lines drifted toward our side</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Max Drawdown</div>
+      <div class="kpi-value warn">16.8%</div>
+      <div class="kpi-note">At 1× cost model</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">P&amp;L ($1K, 1×)</div>
+      <div class="kpi-value pos">$2,104</div>
+      <div class="kpi-note">+110% · 4-month window</div>
+    </div>
+  </div>
+
+  <!-- Cost sensitivity chart -->
+  <div class="chart-wrap">
+    <div class="chart-title">T2 cost sensitivity — P&amp;L range vs. cost multiplier</div>
+    <div class="chart-caption">
+      The honest range. "1×" is the current model estimate; whether it's accurate is unknown.
+      Even at 2× costs (+51% ROI) the strategy is net positive — but the difference between 1× and 2×
+      is $597 on a $1K bankroll, not noise.
+      Source: 220 T2 backtest trades, walk-forward ELOs, $1K starting bankroll, quarter-Kelly sizing.
+    </div>
+    <canvas id="costSensChart"></canvas>
+  </div>
+
+  <table>
+    <tr>
+      <th>Cost Assumption</th>
+      <th class="num">Final ($1K)</th>
+      <th class="num">ROI</th>
+      <th class="num">Max DD</th>
+      <th>Notes</th>
+    </tr>
+    <tr>
+      <td>0.5× (optimistic)</td>
+      <td class="num pos">$2,477</td>
+      <td class="num pos">+148%</td>
+      <td class="num">15.1%</td>
+      <td style="color:#64748b; font-size:12px">Lower than expected execution slippage</td>
+    </tr>
+    <tr style="background:#1a2033">
+      <td class="bold">1.0× (base model)</td>
+      <td class="num bold">$2,104</td>
+      <td class="num bold">+110%</td>
+      <td class="num">16.8%</td>
+      <td style="color:#64748b; font-size:12px">Unvalidated — center estimate only</td>
+    </tr>
+    <tr>
+      <td>1.5× (pessimistic)</td>
+      <td class="num">$1,808</td>
+      <td class="num">+81%</td>
+      <td class="num">18.3%</td>
+      <td style="color:#64748b; font-size:12px">20–50% worse fills than modeled</td>
+    </tr>
+    <tr>
+      <td class="warn">2.0× (worst case)</td>
+      <td class="num warn">$1,507</td>
+      <td class="num warn">+51%</td>
+      <td class="num">20.0%</td>
+      <td style="color:#64748b; font-size:12px">Still net positive, but half the headline figure</td>
+    </tr>
+  </table>
+
+  <hr>
+  <h2>T1 — preliminary backtest</h2>
+
+  <p>
+    T1 (LCK/LPL/LCS markets) shows stronger model edge (+0.160 CLV vs. +0.121 for T2) at the
+    6-day-out opening price. The economic case is better in theory. In practice, T1 viability
+    rests entirely on one unresolved question: how much volume trades in the first 1–6 hours
+    after a T1 market is created?
+  </p>
+
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-label">Edge Trades</div>
+      <div class="kpi-value">162</div>
+      <div class="kpi-note">from 296 resolved markets</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Hit Rate</div>
+      <div class="kpi-value">64.2%</div>
+      <div class="kpi-note">Walk-forward, >10% edge at market creation</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Mean CLV</div>
+      <div class="kpi-value pos">+0.160</div>
+      <div class="kpi-note">71% beat pre-match close</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">P&amp;L ($1K, 1×)</div>
+      <div class="kpi-value pos">$2,412</div>
+      <div class="kpi-note">+141% — ASSUME FILL AT QUOTED PRICE</div>
+    </div>
+  </div>
+
+  <table>
+    <tr>
+      <th>Cost Assumption</th>
+      <th class="num">Final ($1K)</th>
+      <th class="num">ROI</th>
+      <th class="num">Max DD</th>
+      <th>Notes</th>
+    </tr>
+    <tr>
+      <td>0.5× (1.5% cost)</td>
+      <td class="num pos">$2,742</td>
+      <td class="num pos">+174%</td>
+      <td class="num">11.5%</td>
+      <td style="color:#64748b; font-size:12px"></td>
+    </tr>
+    <tr style="background:#1a2033">
+      <td class="bold">1.0× (3% cost)</td>
+      <td class="num bold">$2,412</td>
+      <td class="num bold">+141%</td>
+      <td class="num">12.0%</td>
+      <td style="color:#64748b; font-size:12px">Base model, UNVALIDATED</td>
+    </tr>
+    <tr>
+      <td>2.0× (6% cost)</td>
+      <td class="num">$1,911</td>
+      <td class="num">+91%</td>
+      <td class="num">13.0%</td>
+      <td style="color:#64748b; font-size:12px"></td>
+    </tr>
+    <tr>
+      <td class="warn">3.0× (9% cost)</td>
+      <td class="num warn">$1,537</td>
+      <td class="num warn">+54%</td>
+      <td class="num">13.8%</td>
+      <td style="color:#64748b; font-size:12px">Survives even here — if fills exist at all</td>
+    </tr>
+  </table>
+
+  <div class="callout warn">
+    <div class="callout-title">The T1 P&amp;L assumes unlimited fill at open</div>
+    <p>
+      The T1 backtest assumes you can fill your entire position at the 6-day-out quoted price.
+      T2's fillable estimator already overestated depth on individual trades. T1's opening-hour
+      order book depth has never been measured. A $0 fillable at open makes +141% irrelevant.
+      The T1 P&L numbers communicate model edge, not deployment economics.
+    </p>
+  </div>
+
+  <h3>Sizing rules (frozen)</h3>
+  <table>
+    <tr>
+      <th>Parameter</th>
+      <th>Value</th>
+      <th>Rationale</th>
+    </tr>
+    <tr>
+      <td>Kelly fraction</td>
+      <td class="bold">Quarter-Kelly (6.25%)</td>
+      <td style="color:#64748b; font-size:12px">Cost model unvalidated — size conservatively. Size as if CLV is +0.08, not +0.12</td>
+    </tr>
+    <tr>
+      <td>Per-market cap</td>
+      <td>2% of bankroll</td>
+      <td style="color:#64748b; font-size:12px">Hard cap regardless of Kelly output</td>
+    </tr>
+    <tr>
+      <td>Depth gate</td>
+      <td>Capped at estimated fillable</td>
+      <td style="color:#64748b; font-size:12px">Never size beyond what the market can absorb</td>
+    </tr>
+    <tr>
+      <td>Upgrade to Half-Kelly</td>
+      <td class="warn">Not yet</td>
+      <td style="color:#64748b; font-size:12px">After 20+ forward trades confirm cost model accuracy</td>
+    </tr>
+  </table>
+</div>
+
+
+<!-- ===================== PAGE 4: SCALING ===================== -->
+<div class="page" id="scaling">
+  <div class="section-label">Section 4</div>
+  <h1>What would have to be true to scale</h1>
+
+  <p class="lead">
+    Three constraints determine the ceiling. Two are resolved in principle; one is not.
+    The manager's most useful focus is on the third.
+  </p>
+
+  <!-- Constraint 1 -->
+  <div class="chart-wrap" style="border-color:#f59e0b22">
+    <div class="chart-title" style="color:#f59e0b">Constraint 1 — Cost model validation (T2 and T1)</div>
+    <p style="color:#94a3b8; margin-bottom:0; font-size:13.5px; max-width:700px;">
+      The estimate_opening_cost and estimate_fillable_at_open functions have never been checked
+      against a real fill. Paper trading is live; live trading is not. Every P&amp;L number in
+      this report assumes simulated fills at modeled costs.<br><br>
+      <strong style="color:#f59e0b;">Resolves by:</strong> Forward paper trading with fill logging
+      (predicted vs. actual slippage on every bet). The current paper trader does not log this.
+      It must be added before the cost model can be trusted. 20+ fills are needed to know whether
+      the cost estimate is within 1× or 2×.<br><br>
+      <strong style="color:#f59e0b;">Why it matters:</strong> The gap between 1× and 2× costs
+      on T2 is $597 on a $1K bankroll and ~$3,000 on a $5K bankroll. On T1, it's larger.
+      This is the single biggest unresolved risk.
+    </p>
+  </div>
+
+  <!-- Constraint 2: T2 Capacity -->
+  <div class="chart-wrap">
+    <div class="chart-title">Constraint 2 — T2 capacity ceiling (~$5–10K bankroll)</div>
+
+    <div class="chart-caption">
+      T2 market depth is thin: $15K median total volume, $20–$300 fillable at open per bet.
+      Quarter-Kelly sizing at $10K bankroll means $625 max per bet; most markets can't absorb that.
+      Above $10K, increasing Kelly fraction barely helps because depth runs out first.
+    </div>
+    <canvas id="capacityChart"></canvas>
+  </div>
+
+  <p>
+    T2 is viable at $1–5K bankroll. Above $10K, you are constrained by depth, not strategy quality.
+    The capacity ceiling is not a modeling failure — it's a structural feature of thin T2 markets.
+    The only paths past it are: (a) more T2 leagues with similar characteristics, or (b) T1.
+  </p>
+
+  <!-- Constraint 3: T1 Depth -->
+  <div class="chart-wrap" style="border-color:#ef444422">
+    <div class="chart-title" style="color:#f87171">Constraint 3 — T1 opening-hour depth (the blocking question)</div>
+    <p style="color:#94a3b8; margin-bottom:12px; font-size:13.5px; max-width:700px;">
+      T1 markets (LCK, LPL, LCS) open 6 days before the match. The model's edge lives entirely in
+      the first hours after market creation — by 24 hours later, the CLV is near zero.
+    </p>
+    <table>
+      <tr>
+        <th>Scenario</th>
+        <th class="num">Fillable at Open</th>
+        <th class="num">Bankroll Ceiling</th>
+        <th>Status</th>
+      </tr>
+      <tr>
+        <td>If depth holds ($500+/bet)</td>
+        <td class="num pos">~$500</td>
+        <td class="num pos">$50K+</td>
+        <td style="color:#64748b; font-size:12px">T1 capacity dwarfs T2</td>
+      </tr>
+      <tr>
+        <td>If depth is thin ($50/bet)</td>
+        <td class="num warn">~$50</td>
+        <td class="num warn">$5K</td>
+        <td style="color:#64748b; font-size:12px">Same ceiling as T2, more complexity</td>
+      </tr>
+      <tr>
+        <td class="neg">If depth is near-zero at open</td>
+        <td class="num neg">~$0</td>
+        <td class="num neg">Not viable</td>
+        <td style="color:#64748b; font-size:12px">Fill window doesn't exist</td>
+      </tr>
+    </table>
+    <p style="color:#94a3b8; margin-top:16px; font-size:13.5px; max-width:700px;">
+      <strong style="color:#f87171;">Resolves by:</strong> Passive observation of live T1 markets —
+      log actual order book depth in the first 1h, 6h, 24h after each market is created.
+      This requires a few weeks of data, no modeling work. The T1 capacity case cannot be evaluated
+      without it. This is currently in progress.
+    </p>
+  </div>
+
+  <!-- Summary chart -->
+  <div class="chart-wrap">
+    <div class="chart-title">Capacity ceiling by scenario (annual P&amp;L projection)</div>
+    <div class="chart-caption">
+      Illustrative ranges only. T2 is validated (within cost model uncertainty). T1 projections
+      assume the depth question resolves favorably — which has not been confirmed.
+      All estimates use quarter-Kelly, ~220 trade-equivalent annual pace.
+    </div>
+    <canvas id="scalingChart"></canvas>
+  </div>
+</div>
+
+
+<!-- ===================== PAGE 5: STATUS ===================== -->
+<div class="page" id="status">
+  <div class="section-label">Section 5</div>
+  <h1>Status and what's next</h1>
+
+  <div class="status-table">
+    <div class="status-row">
+      <div class="status-dot dot-green"></div>
+      <div>
+        <div class="status-label">Walk-forward backtest integrity</div>
+        <div class="status-desc">
+          Audited June 2026. Lookahead bias caught and fixed. blend_k corrected from 10→5.
+          CLV anchor fixed. All metrics re-derived on corrected pipeline.
+          These numbers can be trusted to be no-lookahead.
+        </div>
+      </div>
+    </div>
+    <div class="status-row">
+      <div class="status-dot dot-green"></div>
+      <div>
+        <div class="status-label">T2 strategy — edge validated, paper trading live</div>
+        <div class="status-desc">
+          Same-region T2, >10% edge at open, bet at market creation.
+          Live engine runs every 5 minutes. Discord alerts on placed bets.
+          220-trade backtest with walk-forward ELOs and frozen Polymarket dataset confirmed.
+        </div>
+      </div>
+    </div>
+    <div class="status-row">
+      <div class="status-dot dot-green"></div>
+      <div>
+        <div class="status-label">Model frozen — no further tuning planned</div>
+        <div class="status-desc">
+          V2 params (K=32, mov_weight=1.5, identity calibration, no soloq) are locked.
+          All tested improvements were null in out-of-sample betting data.
+          The 64% ceiling is real; further feature work is not expected to help without
+          a different data source.
+        </div>
+      </div>
+    </div>
+    <div class="status-row">
+      <div class="status-dot dot-yellow"></div>
+      <div>
+        <div class="status-label">T1 depth observation — in progress</div>
+        <div class="status-desc">
+          Logging live T1 Polymarket market creation, depth at 1h/6h/24h post-creation.
+          Model edge is confirmed. Fill viability is not. Expect data in 2–4 weeks
+          of passive observation. No deployment decision until then.
+        </div>
+      </div>
+    </div>
+    <div class="status-row">
+      <div class="status-dot dot-yellow"></div>
+      <div>
+        <div class="status-label">Cost model validation — not started</div>
+        <div class="status-desc">
+          Paper trader must be updated to log predicted vs. actual fill price and slippage
+          on every bet. This is the prerequisite for live deployment and for validating
+          the 1× vs. 2× cost uncertainty. Target: 20+ fills before promoting to live.
+        </div>
+      </div>
+    </div>
+    <div class="status-row">
+      <div class="status-dot dot-red"></div>
+      <div>
+        <div class="status-label">Live trading — not started</div>
+        <div class="status-desc">
+          LIVE_TRADING=False in live_engine.py. Promote after:
+          (a) 30+ paper bets with positive CLV AND
+          (b) realized fills tracking the cost model within 1.5×.
+          No timeline commitment — this resolves through data, not calendar.
+        </div>
+      </div>
+    </div>
+    <div class="status-row">
+      <div class="status-dot dot-red"></div>
+      <div>
+        <div class="status-label">T1 live deployment — blocked on depth data</div>
+        <div class="status-desc">
+          Cannot deploy T1 without knowing the opening-hour fill size.
+          The $50K+ capacity projection is a scenario, not a plan.
+          Decision gate: if observed fillable &lt;$100/bet, T1 is not worth the complexity.
+          If &gt;$200/bet, T1 becomes the primary expansion path.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Decision gates</h3>
+  <table>
+    <tr>
+      <th>Gate</th>
+      <th>Condition</th>
+      <th>Resolution path</th>
+    </tr>
+    <tr>
+      <td>T2 live trading</td>
+      <td>30+ paper bets + fills tracking cost model ≤1.5×</td>
+      <td class="warn">Weeks of paper trading</td>
+    </tr>
+    <tr>
+      <td>Half-Kelly upgrade</td>
+      <td>20+ live fills with confirmed cost model accuracy</td>
+      <td class="warn">After T2 live deployment</td>
+    </tr>
+    <tr>
+      <td>T1 deployment decision</td>
+      <td>Opening-hour depth logged on ≥10 T1 markets</td>
+      <td class="warn">2–4 weeks passive observation</td>
+    </tr>
+    <tr>
+      <td>Bankroll above $10K</td>
+      <td>T1 depth confirmed ≥$200 fillable</td>
+      <td>Contingent on T1 gate</td>
+    </tr>
+  </table>
+
+  <div class="callout info">
+    <div class="callout-title">What the manager should push on</div>
+    <p>
+      The cost model is the weakest link. The P&L range (+51% to +148%) is not a confidence interval —
+      it's an uncertainty range over a single unknown that has been modeled but never measured.
+      Logging actual fill slippage on paper trades is the highest-value near-term action.
+      Everything else (T1 expansion, Kelly upgrade, bankroll scaling) is downstream of that validation.
+    </p>
+  </div>
+</div>
+
+
+<script>
+// ── Chart defaults ──────────────────────────────────────────────────
+Chart.defaults.color = '#64748b';
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+Chart.defaults.font.size = 12;
+
+const gridColor = '#1e2533';
+const axisColor = '#334155';
+
+function baseAxes(yLabel, xLabel) {
+  return {
+    x: {
+      grid: { color: gridColor },
+      ticks: { color: '#64748b' },
+      border: { color: axisColor },
+      title: xLabel ? { display: true, text: xLabel, color: '#475569', font: { size: 11 } } : undefined
+    },
+    y: {
+      grid: { color: gridColor },
+      ticks: { color: '#64748b' },
+      border: { color: axisColor },
+      title: yLabel ? { display: true, text: yLabel, color: '#475569', font: { size: 11 } } : undefined
+    }
+  };
+}
+
+// ── 1. Timing decay — T2 ──────────────────────────────────────────
+{
+  const ctx = document.getElementById('timingChart').getContext('2d');
+  const labels = ['Market Open', '4h Pre-Match', '2h Pre-Match', '1h Pre-Match'];
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Model Accuracy (%)',
+          data: [64.9, 63.8, 63.8, 64.2],
+          backgroundColor: '#3b82f620',
+          borderColor: '#3b82f6',
+          borderWidth: 2,
+          borderRadius: 4,
+          type: 'bar'
+        },
+        {
+          label: 'Line Accuracy (%)',
+          data: [54.2, 66.0, 67.0, 66.3],
+          backgroundColor: '#f59e0b20',
+          borderColor: '#f59e0b',
+          borderWidth: 2,
+          borderRadius: 4,
+          type: 'bar'
+        },
+        {
+          label: 'ROI per bet (%)',
+          data: [25.0, -23.4, -8.4, -8.0],
+          borderColor: '#34d399',
+          borderWidth: 2.5,
+          pointBackgroundColor: d => d.raw >= 0 ? '#34d399' : '#f87171',
+          pointRadius: 6,
+          tension: 0.3,
+          type: 'line',
+          yAxisID: 'y2'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index' },
+      plugins: {
+        legend: { labels: { color: '#94a3b8', boxWidth: 14, padding: 16 } },
+        tooltip: {
+          backgroundColor: '#1a1f2e',
+          borderColor: '#334155',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#94a3b8'
+        }
+      },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: '#64748b' }, border: { color: axisColor } },
+        y: {
+          grid: { color: gridColor }, ticks: { color: '#64748b' }, border: { color: axisColor },
+          min: 40, max: 80,
+          title: { display: true, text: 'Accuracy (%)', color: '#475569', font: { size: 11 } }
+        },
+        y2: {
+          position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: { color: '#64748b', callback: v => v + '%' },
+          border: { color: axisColor },
+          title: { display: true, text: 'ROI per bet (%)', color: '#475569', font: { size: 11 } }
+        }
+      }
+    }
+  });
+}
+
+// ── 2. T1 CLV Decay ──────────────────────────────────────────────
+{
+  const ctx = document.getElementById('t1DecayChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['Market creation\n(6 days out)', '1h after open', '4h after open', '24h after open', '48h after open', '4 days after open'],
+      datasets: [{
+        label: 'Mean CLV',
+        data: [0.160, 0.099, 0.054, 0.008, -0.011, -0.023],
+        borderColor: '#3b82f6',
+        backgroundColor: ctx => {
+          const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 200);
+          gradient.addColorStop(0, '#3b82f630');
+          gradient.addColorStop(1, '#3b82f600');
+          return gradient;
+        },
+        borderWidth: 2.5,
+        pointBackgroundColor: d => d.raw >= 0 ? '#3b82f6' : '#f87171',
+        pointBorderColor: d => d.raw >= 0 ? '#3b82f6' : '#f87171',
+        pointRadius: 6,
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1f2e', borderColor: '#334155', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+          callbacks: { label: ctx => ` CLV: ${ctx.parsed.y >= 0 ? '+' : ''}${ctx.parsed.y.toFixed(3)}` }
+        }
+      },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: '#64748b' }, border: { color: axisColor } },
+        y: {
+          grid: { color: gridColor }, ticks: { color: '#64748b' }, border: { color: axisColor },
+          title: { display: true, text: 'Mean CLV', color: '#475569', font: { size: 11 } },
+          min: -0.05,
+          afterDataLimits: axis => { axis.max = Math.max(axis.max, 0.20); }
+        }
+      },
+      annotation: { annotations: [{ type: 'line', yMin: 0, yMax: 0, borderColor: '#334155', borderWidth: 1 }] }
+    }
+  });
+}
+
+// ── 3. Per-league accuracy ────────────────────────────────────────
+{
+  const ctx = document.getElementById('accuracyChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['T2 (all regions)', 'T1 LCK', 'T1 LEC', 'T1 LCS', 'T1 LPL'],
+      datasets: [
+        {
+          label: 'Model Accuracy (walk-forward)',
+          data: [63.8, 67.7, 64.3, 62.8, 61.6],
+          backgroundColor: ['#3b82f6aa', '#10b981aa', '#10b981aa', '#10b981aa', '#10b981aa'],
+          borderColor: ['#3b82f6', '#10b981', '#10b981', '#10b981', '#10b981'],
+          borderWidth: 2,
+          borderRadius: 4
+        },
+        {
+          label: 'Polymarket Opening Line Accuracy',
+          data: [54.2, 53.0, 53.0, 53.0, 53.0],
+          backgroundColor: '#f59e0b22',
+          borderColor: '#f59e0b',
+          borderWidth: 2,
+          borderRadius: 4,
+          borderDash: [4, 2]
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#94a3b8', boxWidth: 14, padding: 16 } },
+        tooltip: {
+          backgroundColor: '#1a1f2e', borderColor: '#334155', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#94a3b8'
+        }
+      },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: '#64748b' }, border: { color: axisColor } },
+        y: {
+          grid: { color: gridColor }, ticks: { color: '#64748b', callback: v => v + '%' },
+          border: { color: axisColor }, min: 45, max: 75,
+          title: { display: true, text: 'Accuracy (%)', color: '#475569', font: { size: 11 } }
+        }
+      }
+    }
+  });
+}
+
+// ── 4. Cost sensitivity ───────────────────────────────────────────
+{
+  const ctx = document.getElementById('costSensChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['0.5× (optimistic)', '1.0× (base model)', '1.5× (pessimistic)', '2.0× (worst case)'],
+      datasets: [
+        {
+          label: 'Final bankroll ($1K start)',
+          data: [2477, 2104, 1808, 1507],
+          backgroundColor: ['#34d39966', '#3b82f666', '#f59e0b66', '#f8717166'],
+          borderColor: ['#34d399', '#3b82f6', '#f59e0b', '#f87171'],
+          borderWidth: 2,
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1f2e', borderColor: '#334155', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+          callbacks: {
+            label: ctx => ` $${ctx.parsed.y.toLocaleString()} (+${Math.round((ctx.parsed.y/1000-1)*100)}% ROI)`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: '#64748b' }, border: { color: axisColor } },
+        y: {
+          grid: { color: gridColor }, ticks: { color: '#64748b', callback: v => '$' + v.toLocaleString() },
+          border: { color: axisColor }, min: 1000,
+          title: { display: true, text: 'Final bankroll ($1K start, 4-month window)', color: '#475569', font: { size: 11 } }
+        }
+      }
+    }
+  });
+}
+
+// ── 5. Capacity ceiling ───────────────────────────────────────────
+{
+  const ctx = document.getElementById('capacityChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['$1K', '$2K', '$5K', '$10K', '$20K', '$50K'],
+      datasets: [
+        {
+          label: 'T2 effective ROI (liquidity-constrained)',
+          data: [110, 108, 95, 70, 45, 25],
+          borderColor: '#3b82f6',
+          backgroundColor: '#3b82f610',
+          borderWidth: 2.5,
+          tension: 0.4,
+          pointRadius: 4,
+          fill: true
+        },
+        {
+          label: 'T1 effective ROI (if depth ≥$500/bet)',
+          data: [141, 140, 138, 135, 128, 115],
+          borderColor: '#10b981',
+          backgroundColor: '#10b98110',
+          borderWidth: 2,
+          borderDash: [6, 3],
+          tension: 0.4,
+          pointRadius: 4,
+          fill: true
+        },
+        {
+          label: 'T1 effective ROI (if depth ~$50/bet)',
+          data: [141, 140, 115, 75, 45, 20],
+          borderColor: '#f59e0b',
+          backgroundColor: '#f59e0b05',
+          borderWidth: 2,
+          borderDash: [3, 3],
+          tension: 0.4,
+          pointRadius: 4,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#94a3b8', boxWidth: 14, padding: 14, font: { size: 11.5 } } },
+        tooltip: {
+          backgroundColor: '#1a1f2e', borderColor: '#334155', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ~${ctx.parsed.y}% ROI (illustrative)` }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: gridColor }, ticks: { color: '#64748b' }, border: { color: axisColor },
+          title: { display: true, text: 'Bankroll size', color: '#475569', font: { size: 11 } }
+        },
+        y: {
+          grid: { color: gridColor }, ticks: { color: '#64748b', callback: v => v + '%' },
+          border: { color: axisColor }, min: 0, max: 160,
+          title: { display: true, text: 'ROI (illustrative, 1× cost model)', color: '#475569', font: { size: 11 } }
+        }
+      }
+    }
+  });
+}
+
+// ── 6. Scaling summary ────────────────────────────────────────────
+{
+  const ctx = document.getElementById('scalingChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['T2 $1K', 'T2 $5K', 'T2 $10K', 'T1 (depth=$500)', 'T1 (depth=$50)'],
+      datasets: [
+        {
+          label: 'Annual P&L (illustrative, 1× costs, ~220 trades/yr)',
+          data: [1100, 4500, 6000, 28000, 4500],
+          backgroundColor: [
+            '#3b82f666', '#3b82f666', '#3b82f666',
+            '#10b98166', '#f59e0b66'
+          ],
+          borderColor: ['#3b82f6', '#3b82f6', '#3b82f6', '#10b981', '#f59e0b'],
+          borderWidth: 2,
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1f2e', borderColor: '#334155', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+          callbacks: {
+            label: ctx => ` ~$${ctx.parsed.y.toLocaleString()} annual P&L (illustrative only)`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: '#64748b' }, border: { color: axisColor } },
+        y: {
+          grid: { color: gridColor }, ticks: { color: '#64748b', callback: v => '$' + v.toLocaleString() },
+          border: { color: axisColor },
+          title: { display: true, text: 'Illustrative annual P&L', color: '#475569', font: { size: 11 } }
+        }
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>

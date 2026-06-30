@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>T1 Model Deep Dive — Real Backtest Results</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  .page {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 48px 32px;
+    border-bottom: 1px solid #1e2533;
+  }
+  .page:last-child { border-bottom: none; }
+
+  h1 { font-size: 28px; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; letter-spacing: -0.3px; }
+  h2 {
+    font-size: 20px; font-weight: 600; color: #cbd5e1; margin-bottom: 4px; margin-top: 40px;
+    letter-spacing: -0.2px; border-left: 3px solid #3b82f6; padding-left: 12px;
+  }
+  h2:first-of-type { margin-top: 0; }
+  h3 {
+    font-size: 14px; font-weight: 600; color: #94a3b8; text-transform: uppercase;
+    letter-spacing: 0.8px; margin-bottom: 16px; margin-top: 32px;
+  }
+  p { color: #94a3b8; margin-bottom: 12px; max-width: 760px; }
+  .lead { font-size: 16px; color: #cbd5e1; max-width: 760px; margin-bottom: 20px; line-height: 1.7; }
+
+  .report-header {
+    background: linear-gradient(135deg, #0f1117 0%, #1a1f2e 100%);
+    border-bottom: 1px solid #1e2533;
+    padding: 48px 32px 40px;
+    max-width: 980px;
+    margin: 0 auto;
+  }
+  .report-title { font-size: 32px; font-weight: 700; color: #f1f5f9; letter-spacing: -0.5px; margin-bottom: 8px; }
+  .report-subtitle { font-size: 16px; color: #64748b; margin-bottom: 24px; }
+  .tag-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .tag { background: #1e2533; color: #64748b; font-size: 12px; padding: 4px 10px; border-radius: 4px; font-weight: 500; border: 1px solid #2d3748; }
+  .tag.warn { background: #2d1f0a; color: #f59e0b; border-color: #451a03; }
+  .tag.ok { background: #0f2117; color: #34d399; border-color: #064e3b; }
+  .tag.neg { background: #2d0f0f; color: #f87171; border-color: #450a0a; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin: 24px 0; }
+  .kpi { background: #1a1f2e; border: 1px solid #1e2533; border-radius: 8px; padding: 20px 16px; }
+  .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #64748b; font-weight: 600; margin-bottom: 6px; }
+  .kpi-value { font-size: 26px; font-weight: 700; color: #f1f5f9; line-height: 1; margin-bottom: 4px; }
+  .kpi-note { font-size: 11px; color: #475569; line-height: 1.4; }
+  .kpi-value.warn { color: #f59e0b; }
+  .kpi-value.neg { color: #f87171; }
+  .kpi-value.pos { color: #34d399; }
+
+  .chart-wrap { background: #1a1f2e; border: 1px solid #1e2533; border-radius: 8px; padding: 24px; margin: 20px 0; position: relative; }
+  .chart-title { font-size: 14px; font-weight: 600; color: #cbd5e1; margin-bottom: 4px; }
+  .chart-caption { font-size: 12px; color: #475569; margin-bottom: 18px; line-height: 1.5; max-width: 700px; }
+  canvas { max-height: 340px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 20px 0; }
+  th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.6px; color: #475569; font-weight: 600; padding: 9px 10px; border-bottom: 1px solid #1e2533; background: #141820; }
+  td { padding: 9px 10px; border-bottom: 1px solid #141820; color: #94a3b8; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #1e2533; }
+  td.num { font-variant-numeric: tabular-nums; font-family: 'SF Mono', 'Fira Code', monospace; }
+  td.pos { color: #34d399; }
+  td.neg { color: #f87171; }
+  td.warn { color: #f59e0b; }
+  td.bold { color: #e2e8f0; font-weight: 600; }
+  .table-scroll { overflow-x: auto; }
+
+  .callout { border-radius: 8px; padding: 16px 20px; margin: 20px 0; border-left: 4px solid; max-width: 760px; }
+  .callout-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .callout p { margin: 0; font-size: 13.5px; max-width: none; }
+  .callout.warn { background: #1c1505; border-color: #f59e0b; }
+  .callout.warn .callout-title { color: #f59e0b; }
+  .callout.warn p { color: #ca8a04; }
+  .callout.info { background: #0f1b2d; border-color: #3b82f6; }
+  .callout.info .callout-title { color: #60a5fa; }
+  .callout.info p { color: #93c5fd; }
+  .callout.ok { background: #0a1f14; border-color: #34d399; }
+  .callout.ok .callout-title { color: #34d399; }
+  .callout.ok p { color: #6ee7b7; }
+  .callout.neg { background: #1f0a0a; border-color: #f87171; }
+  .callout.neg .callout-title { color: #f87171; }
+  .callout.neg p { color: #fca5a5; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+  @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+  .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #3b82f6; margin-bottom: 10px; }
+  hr { border: none; border-top: 1px solid #1e2533; margin: 32px 0; }
+
+  .page-nav {
+    display: flex; gap: 0; border-bottom: 1px solid #1e2533; max-width: 980px; margin: 0 auto;
+    background: #0f1117; position: sticky; top: 0; z-index: 100; overflow-x: auto;
+  }
+  .nav-item { padding: 14px 18px; font-size: 13px; color: #64748b; text-decoration: none; border-bottom: 2px solid transparent; transition: all 0.15s; font-weight: 500; white-space: nowrap; }
+  .nav-item:hover { color: #94a3b8; background: #141820; }
+
+  .em { color: #e2e8f0; font-weight: 600; }
+  .em-warn { color: #f59e0b; font-weight: 600; }
+  .em-pos { color: #34d399; font-weight: 600; }
+  .em-neg { color: #f87171; font-weight: 600; }
+
+  code { background: #1e2533; padding: 1px 6px; border-radius: 4px; font-size: 12.5px; color: #93c5fd; }
+</style>
+</head>
+<body>
+
+<div class="report-header">
+  <div class="section-label">Methodology Note · Companion to Strategic Report · June 2026</div>
+  <div class="report-title">T1 Model Deep Dive</div>
+  <div class="report-subtitle">Real walk-forward model + real Polymarket price histories — not the Monte Carlo simulator, not summary-table numbers</div>
+  <div class="tag-row">
+    <span class="tag ok">250 markets, real walk-forward ELO</span>
+    <span class="tag ok">Real CLOB price histories (10-min resolution)</span>
+    <span class="tag warn">Depth proxy unvalidated</span>
+    <span class="tag neg">Late-entry edge confirmed negative</span>
+  </div>
+</div>
+
+<nav class="page-nav">
+  <a href="#overview" class="nav-item">1. Model & Use Case</a>
+  <a href="#timing" class="nav-item">2. Entry-Timing Curve</a>
+  <a href="#portfolio" class="nav-item">3. Portfolio Sizing</a>
+  <a href="#methodology" class="nav-item">Methodology</a>
+</nav>
+
+
+<!-- ===================== PART 1: MODEL OVERVIEW ===================== -->
+<div class="page" id="overview">
+  <div class="section-label">Part 1</div>
+  <h1>T1 model overview and the real use case</h1>
+
+  <p class="lead">
+    This section reruns the actual production model — the V2 walk-forward ELO tracker
+    (K=32, blend_k=5, scale=400, half_life=270d, mov_weight=1.5, no soloq, identity calibration)
+    — directly against the LCK/LPL/LCS match history in the database. These numbers are
+    re-derived in this session, not copied from CLAUDE.md, and they match it closely
+    (small differences are rounding/window artifacts) — which is itself useful confirmation
+    that the documented numbers are reproducible.
+  </p>
+
+  <div class="callout info">
+    <div class="callout-title">Where the edge comes from</div>
+    <p>
+      Same mechanism as T2: the model is not exceptional (62–68% depending on league).
+      It beats the Polymarket opening price, which on T1 markets is even softer than T2's
+      because the market opens <strong>six days before the match</strong> — far longer
+      before sharp money arrives. The edge is a timing exploit, not a forecasting one.
+    </p>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-title">Per-league walk-forward accuracy (re-run this session)</div>
+    <div class="chart-caption">
+      Source: <code>backtest/backtest.py</code> run_backtest(), V2 frozen params, eval window 2024-01-01–present,
+      walk-forward (no lookahead). n = matches scored in eval window. LEC is included for accuracy context only —
+      no LEC markets exist in the frozen Polymarket T1 dataset, so LEC accuracy doesn't translate into a tradeable
+      strategy here.
+    </div>
+    <canvas id="leagueAccChart"></canvas>
+  </div>
+
+  <table>
+    <tr><th>League</th><th class="num">Accuracy</th><th class="num">Brier</th><th class="num">Matches (n)</th><th>Note</th></tr>
+    <tr><td class="bold">LCK</td><td class="num bold">67.7%</td><td class="num">0.207</td><td class="num">1,386</td><td style="color:#64748b;font-size:12px">Standout league — also has the best PM trade results below</td></tr>
+    <tr><td>LEC</td><td class="num">64.3%</td><td class="num">0.228</td><td class="num">846</td><td style="color:#64748b;font-size:12px">No PM market data in frozen dataset — accuracy only, not tradeable here</td></tr>
+    <tr><td>LCS</td><td class="num">62.8%</td><td class="num">0.224</td><td class="num">349</td><td style="color:#64748b;font-size:12px">Smallest sample of the three tradeable leagues</td></tr>
+    <tr><td>LPL</td><td class="num">61.6%</td><td class="num">0.233</td><td class="num">1,975</td><td style="color:#64748b;font-size:12px">Largest sample, weakest accuracy of the three tradeable leagues</td></tr>
+  </table>
+
+  <div class="callout warn">
+    <div class="callout-title">Honest read on the accuracy numbers</div>
+    <p>
+      This is one evaluation window (since 2024-01-01, because LCK/LPL/LCS match data in the DB only
+      starts then — there's no earlier T1 data to test on). LCK's 67.7% is the standout, but it's also
+      sitting on the smallest reliable sample of the three (1,386 matches is fine for accuracy, but the
+      actual P&L sample is much smaller — see Part 3). Don't read "LCK is the best league" as more settled
+      than one window's worth of evidence supports.
+    </p>
+  </div>
+</div>
+
+
+<!-- ===================== PART 2: TIMING CURVE ===================== -->
+<div class="page" id="timing">
+  <div class="section-label">Part 2 — The Centerpiece</div>
+  <h1>Fine-grained entry-timing backtest</h1>
+
+  <p class="lead">
+    The CLAUDE.md timing table sampled 6 points (open, 1h, 4h, 24h, 48h, 4d) and used a Monte Carlo
+    simulator with an <em>assumed</em> model accuracy — not the real model. This rerun uses the actual
+    V2 model's walk-forward predictions against the actual quoted price at <strong>10 points</strong>
+    between market open and 24 hours later, resampled directly from each market's real 10-minute-resolution
+    CLOB price history (250 markets, 26–4,483 price points each). It also recomputes the original
+    hours-before-match grid for direct comparison.
+  </p>
+
+  <div class="callout neg">
+    <div class="callout-title">Headline finding: the profitable window is real but narrower and noisier than the coarse grid implied</div>
+    <p>
+      ROI per bet (the number that actually matters — it bakes in win/loss outcomes and the T1 cost model,
+      not just price drift) is statistically indistinguishable from "strongly positive" through roughly the
+      first 3–6 hours after market open. The 95% bootstrap CI starts crossing zero around <strong>+6h</strong>.
+      By <strong>+24h</strong>, the point estimate is already negative (–5.4%, CI [–30%, +22%]) — earlier than
+      the CLAUDE.md note that CLV "stays near zero" at 24h. The hours-before-match grid (which samples the tail
+      end of the same 6-day window) is unambiguous: every single point from 24h-before-match through 1h-before-match
+      shows negative ROI per bet. There is no late-entry sweet spot in this window — none of the 8 tested
+      pre-match points clear zero.
+    </p>
+  </div>
+
+  <!-- Centerpiece chart -->
+  <div class="chart-wrap">
+    <div class="chart-title">CLV, hit rate, and ROI/bet vs. time since market open (the centerpiece)</div>
+    <div class="chart-caption">
+      Source: real V2 walk-forward model vs. real Polymarket T1 price histories, 250 markets
+      (LCK/LPL/LCS, same-region, ≥10 games/team, walk-forward, no lookahead).
+      n at each point = trades clearing the >10% edge threshold (shown as labels) — n shrinks as
+      edge erodes, from 154 at open to 108 at +24h. ROI/bet uses the volume-dependent T1 cost model at 1×.
+      Shaded band = 95% bootstrap CI on ROI/bet. <strong>Where the band crosses zero, the result is not
+      distinguishable from break-even at this sample size</strong> — read the point estimate with that
+      in mind, especially past +6h.
+    </div>
+    <canvas id="timingCenterpiece"></canvas>
+  </div>
+
+  <div class="table-scroll">
+  <table>
+    <tr>
+      <th>Entry Point</th><th class="num">n trades</th><th class="num">% mkts w/ edge</th>
+      <th class="num">Hit Rate</th><th class="num">Mean CLV</th><th class="num">ROI/bet</th><th class="num">95% CI</th>
+    </tr>
+    <tr><td class="bold">Open (0m)</td><td class="num">154</td><td class="num">61.6%</td><td class="num pos">63.0%</td><td class="num pos">+0.169</td><td class="num pos bold">+28.8%</td><td class="num">[+12%, +46%]</td></tr>
+    <tr><td>+30m</td><td class="num">145</td><td class="num">58.0%</td><td class="num pos">62.8%</td><td class="num pos">+0.152</td><td class="num pos">+27.3%</td><td class="num">[+10%, +45%]</td></tr>
+    <tr><td>+1h</td><td class="num">135</td><td class="num">54.0%</td><td class="num pos">63.7%</td><td class="num pos">+0.153</td><td class="num pos">+35.8%</td><td class="num">[+16%, +56%]</td></tr>
+    <tr><td>+2h</td><td class="num">128</td><td class="num">51.2%</td><td class="num pos">59.4%</td><td class="num pos">+0.155</td><td class="num pos">+38.8%</td><td class="num">[+14%, +66%]</td></tr>
+    <tr><td>+3h</td><td class="num">125</td><td class="num">50.0%</td><td class="num pos">57.6%</td><td class="num pos">+0.141</td><td class="num pos">+33.5%</td><td class="num">[+8%, +61%]</td></tr>
+    <tr style="background:#1a2033"><td>+6h</td><td class="num">115</td><td class="num">46.2%</td><td class="num">50.4%</td><td class="num pos">+0.102</td><td class="num">+21.3%</td><td class="num warn">[–6%, +50%]</td></tr>
+    <tr><td>+9h</td><td class="num">108</td><td class="num">43.4%</td><td class="num">47.2%</td><td class="num pos">+0.092</td><td class="num">+13.0%</td><td class="num warn">[–14%, +43%]</td></tr>
+    <tr><td>+12h</td><td class="num">106</td><td class="num">42.6%</td><td class="num">48.1%</td><td class="num pos">+0.095</td><td class="num">+16.7%</td><td class="num warn">[–10%, +47%]</td></tr>
+    <tr><td>+18h</td><td class="num">118</td><td class="num">47.4%</td><td class="num">46.6%</td><td class="num pos">+0.089</td><td class="num">+12.3%</td><td class="num warn">[–13%, +39%]</td></tr>
+    <tr style="background:#1f1414"><td class="bold">+24h</td><td class="num">108</td><td class="num">43.7%</td><td class="num neg">38.9%</td><td class="num pos">+0.083</td><td class="num neg bold">–5.4%</td><td class="num">[–30%, +22%]</td></tr>
+  </table>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-title">CLV and hit rate disagree past +6h — that's the real warning sign</div>
+    <p>
+      Mean CLV stays positive all the way to +24h (+0.083) — the line keeps drifting toward the model's side
+      on average. But hit rate falls from 63% at open to 38.9% at +24h, well below the model's own ~62–68%
+      raw accuracy. This is consistent with <strong>adverse selection</strong>: trades where the model still
+      disagrees with the market by >10% after 24 hours of correction are disproportionately the cases where
+      the market was right and the model was wrong, not cases of slow-moving sharp money. CLV alone would
+      have made +24h look fine. ROI/bet (which is decided by actual outcomes, not price drift) shows it isn't.
+    </p>
+  </div>
+
+  <h3>Hours-before-match grid (mirrors the CLAUDE.md table, real model)</h3>
+  <p style="max-width:760px">
+    This grid samples the tail end of the same 6-day window, walking backward from match start instead of
+    forward from market creation. It's a different cut through the same data and the conclusion agrees:
+    nothing here is profitable.
+  </p>
+
+  <div class="chart-wrap">
+    <div class="chart-title">ROI/bet by hours-before-match (real model, real prices)</div>
+    <div class="chart-caption">
+      Same 250-market universe, same edge/cost/sizing rules, sampled backward from each match's start time
+      instead of forward from market creation. All 8 points are negative or effectively zero —
+      there is no late-entry timing within 24h of match start that clears break-even.
+    </div>
+    <canvas id="hoursBeforeChart"></canvas>
+  </div>
+
+  <div class="table-scroll">
+  <table>
+    <tr><th>Time Before Match</th><th class="num">n trades</th><th class="num">Hit Rate</th><th class="num">Mean CLV</th><th class="num">ROI/bet</th></tr>
+    <tr><td>24h before</td><td class="num">94</td><td class="num neg">36.2%</td><td class="num pos">+0.047</td><td class="num neg">–9.3%</td></tr>
+    <tr><td>12h before</td><td class="num">95</td><td class="num neg">33.7%</td><td class="num pos">+0.047</td><td class="num neg">–13.5%</td></tr>
+    <tr><td>8h before</td><td class="num">98</td><td class="num neg">33.7%</td><td class="num pos">+0.054</td><td class="num neg">–11.0%</td></tr>
+    <tr><td>6h before</td><td class="num">100</td><td class="num neg">33.0%</td><td class="num pos">+0.053</td><td class="num neg">–12.8%</td></tr>
+    <tr><td>4h before</td><td class="num">102</td><td class="num neg">33.3%</td><td class="num pos">+0.049</td><td class="num neg">–11.6%</td></tr>
+    <tr><td>3h before</td><td class="num">99</td><td class="num neg">35.4%</td><td class="num pos">+0.058</td><td class="num neg">–6.1%</td></tr>
+    <tr><td>2h before</td><td class="num">110</td><td class="num neg">36.4%</td><td class="num pos">+0.079</td><td class="num neg">–3.2%</td></tr>
+    <tr><td>1h before</td><td class="num">130</td><td class="num neg">30.0%</td><td class="num pos">+0.057</td><td class="num neg">–0.1%</td></tr>
+  </table>
+  </div>
+
+  <hr>
+
+  <h2 style="margin-top:24px">Where the edge crosses zero — and where the real tradeoff sits</h2>
+
+  <p>
+    Reading the forward-from-open curve plainly: ROI/bet is solidly positive and overlapping in confidence
+    interval from <span class="em-pos">open through about +3h</span> (point estimates +27% to +39%, all CIs
+    clearing zero). The apparent peak at +1h/+2h is <strong>not</strong> a confirmed sweet spot — the CIs at
+    open, +1h, +2h, and +3h all overlap heavily, so this is most consistent with one flat high-edge plateau,
+    not a precise timing optimum. From <span class="em-warn">+6h to +18h</span>, point estimates stay positive
+    but the CI straddles zero — not distinguishable from break-even at this sample size. By
+    <span class="em-neg">+24h</span> the point estimate goes negative, and every hours-before-match point tested
+    (1h to 24h before the match) is negative. There is no rescue point later in the window.
+  </p>
+
+  <div class="callout info">
+    <div class="callout-title">The real tradeoff: edge vs. depth, and depth is still unmeasured</div>
+    <p>
+      Market open has the most edge and is the truncated end of the curve. The thinnest order book is also
+      most likely at that exact moment — a market six days from a match has had zero time to accumulate
+      liquidity. If real depth at open turns out to be near zero, the highest-edge window may also be the
+      least fillable one. The next 3–6 hours after open are the only other zone where the CI clears zero,
+      and structurally probably have more accumulated depth than the instant of creation — but how much
+      more is exactly the unmeasured quantity. <strong>Any claim of a "sweet spot" between open and +6h is
+      conditional on depth observation confirming fillable size holds up in that window — this has not
+      been measured.</strong> Section 3's depth-sensitivity sweep quantifies how much that matters.
+    </p>
+  </div>
+</div>
+
+
+<!-- ===================== PART 3: PORTFOLIO SIZING ===================== -->
+<div class="page" id="portfolio">
+  <div class="section-label">Part 3</div>
+  <h1>Backtested P&amp;L at larger portfolio sizes</h1>
+
+  <p class="lead">
+    Bankroll sweep using the real model's trades at market open (the highest-edge, least-depth-tested entry
+    point), quarter-Kelly sizing, 2% per-market cap, and the existing volume-proxy depth gate, at 1×–3× the
+    base T1 cost assumption.
+  </p>
+
+  <div class="callout warn">
+    <div class="callout-title">Every number below is doubly conditional</div>
+    <p>
+      1) On the cost model holding (never validated against a real fill — same caveat as T2).
+      2) On real opening-hour depth existing at the level the volume-proxy fillable estimator assumes —
+      also never measured. The bankroll sweep below shows the depth gate <strong>essentially never binds</strong>
+      up to $50K. That is not evidence depth is fine — it's a property of how fillable is estimated
+      (a percentage of <em>lifetime</em> market volume, which CLAUDE.md already flags as likely to overstate
+      true opening-hour depth). The depth-sensitivity table further below shows what happens if that proxy
+      is wrong by an order of magnitude.
+    </p>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-title">P&amp;L vs. bankroll, with cost sensitivity</div>
+    <div class="chart-caption">
+      153 real-model trades at market open (1 fewer at 3× cost — one trade's entry price exceeds 0.99 and is
+      dropped). Source: this session's t1_model_backtest.py bankroll sweep, walk-forward ELOs, real Polymarket
+      prices, quarter-Kelly + 2% cap + depth gate. Depth gate did not bind meaningfully at any bankroll tested
+      (0.7% of trades) — see caveat above.
+    </div>
+    <canvas id="bankrollChart"></canvas>
+  </div>
+
+  <div class="table-scroll">
+  <table>
+    <tr>
+      <th>Bankroll</th><th class="num">Cost ×</th><th class="num">Trades</th><th class="num">Hit %</th>
+      <th class="num">Final</th><th class="num">ROI</th><th class="num">Max DD</th><th class="num">Avg Stake</th>
+      <th class="num">Depth-Bound %</th>
+    </tr>
+    <tr><td class="bold">$1,000</td><td class="num">1.0×</td><td class="num">153</td><td class="num">63%</td><td class="num pos">$2,255</td><td class="num pos bold">+126%</td><td class="num">15.9%</td><td class="num">$29</td><td class="num">0.7%</td></tr>
+    <tr><td>$1,000</td><td class="num">1.5×</td><td class="num">153</td><td class="num">63%</td><td class="num pos">$2,049</td><td class="num pos">+105%</td><td class="num">16.2%</td><td class="num">$28</td><td class="num">0.7%</td></tr>
+    <tr><td>$1,000</td><td class="num">2.0×</td><td class="num">153</td><td class="num">63%</td><td class="num pos">$1,872</td><td class="num pos">+87%</td><td class="num">16.5%</td><td class="num">$27</td><td class="num">0.7%</td></tr>
+    <tr><td>$1,000</td><td class="num warn">3.0×</td><td class="num">152</td><td class="num">62%</td><td class="num pos">$1,563</td><td class="num pos">+56%</td><td class="num">17.1%</td><td class="num">$24</td><td class="num">0.0%</td></tr>
+    <tr style="background:#1a2033"><td class="bold">$10,000</td><td class="num">1.0×</td><td class="num">153</td><td class="num">63%</td><td class="num pos">$22,553</td><td class="num pos bold">+126%</td><td class="num">15.9%</td><td class="num">$294</td><td class="num">0.7%</td></tr>
+    <tr><td>$10,000</td><td class="num">1.5×</td><td class="num">153</td><td class="num">63%</td><td class="num pos">$20,495</td><td class="num pos">+105%</td><td class="num">16.2%</td><td class="num">$279</td><td class="num">0.7%</td></tr>
+    <tr><td>$10,000</td><td class="num">2.0×</td><td class="num">153</td><td class="num">63%</td><td class="num pos">$18,717</td><td class="num pos">+87%</td><td class="num">16.5%</td><td class="num">$265</td><td class="num">0.7%</td></tr>
+    <tr><td>$10,000</td><td class="num warn">3.0×</td><td class="num">152</td><td class="num">62%</td><td class="num pos">$15,635</td><td class="num pos">+56%</td><td class="num">17.1%</td><td class="num">$240</td><td class="num">0.0%</td></tr>
+    <tr><td class="bold">$25,000</td><td class="num">1.0×</td><td class="num">153</td><td class="num">63%</td><td class="num pos">$56,382</td><td class="num pos bold">+126%</td><td class="num">15.9%</td><td class="num">$736</td><td class="num">0.7%</td></tr>
+    <tr><td>$25,000</td><td class="num">1.5×</td><td class="num">153</td><td class="num">63%</td><td class="num pos">$51,236</td><td class="num pos">+105%</td><td class="num">16.2%</td><td class="num">$697</td><td class="num">0.7%</td></tr>
+    <tr><td>$25,000</td><td class="num">2.0×</td><td class="num">153</td><td class="num">63%</td><td class="num pos">$46,794</td><td class="num pos">+87%</td><td class="num">16.5%</td><td class="num">$664</td><td class="num">0.7%</td></tr>
+    <tr><td>$25,000</td><td class="num warn">3.0×</td><td class="num">152</td><td class="num">62%</td><td class="num pos">$39,087</td><td class="num pos">+56%</td><td class="num">17.1%</td><td class="num">$600</td><td class="num">0.0%</td></tr>
+    <tr style="background:#1a2033"><td class="bold">$50,000</td><td class="num">1.0×</td><td class="num">153</td><td class="num">63%</td><td class="num pos">$112,764</td><td class="num pos bold">+126%</td><td class="num">15.9%</td><td class="num">$1,471</td><td class="num">0.7%</td></tr>
+    <tr><td>$50,000</td><td class="num">1.5×</td><td class="num">153</td><td class="num">63%</td><td class="num pos">$102,473</td><td class="num pos">+105%</td><td class="num">16.2%</td><td class="num">$1,395</td><td class="num">0.7%</td></tr>
+    <tr><td>$50,000</td><td class="num">2.0×</td><td class="num">153</td><td class="num">63%</td><td class="num pos">$93,587</td><td class="num pos">+87%</td><td class="num">16.5%</td><td class="num">$1,327</td><td class="num">0.7%</td></tr>
+    <tr><td>$50,000</td><td class="num warn">3.0×</td><td class="num">152</td><td class="num">62%</td><td class="num pos">$78,173</td><td class="num pos">+56%</td><td class="num">17.1%</td><td class="num">$1,200</td><td class="num">0.0%</td></tr>
+  </table>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-title">Read this ROI with care</div>
+    <p>
+      +126% ROI is identical in percentage terms from $1K to $50K because the 2% per-market cap — not depth —
+      is the binding constraint at every level tested (cap-bound on 100% of trades). That means this backtest
+      cannot answer "does T1 capacity beat T2's $5–10K ceiling?" — it shows what happens if the cap, not the
+      market, is always what limits you. The market-imposed limit is exactly the thing that hasn't been measured.
+    </p>
+  </div>
+
+  <h3>Depth sensitivity — what would have to be true for the $50K scenario to hold</h3>
+  <p style="max-width:760px">
+    The fillable estimate used above (median ≈$8,200/trade) comes from a percentage of each market's
+    <em>lifetime</em> volume — a proxy CLAUDE.md already flags as likely to overstate real opening-hour depth.
+    The table below scales that proxy down to see where real constrained depth would start eating into returns,
+    if the true number turns out to be a fraction of the proxy.
+  </p>
+
+  <div class="chart-wrap">
+    <div class="chart-title">ROI vs. depth-scale-down, at $10K and $50K starting bankroll</div>
+    <div class="chart-caption">
+      "Depth scale" = the fraction of the lifetime-volume-based fillable estimate assumed to be real.
+      100% = the unvalidated estimate used in the table above. Source: this session's depth-sensitivity sweep,
+      same 153 trades, same walk-forward model.
+    </div>
+    <canvas id="depthSensChart"></canvas>
+  </div>
+
+  <div class="table-scroll">
+  <table>
+    <tr><th>Depth Scale</th><th class="num">Implied Avg Fillable</th><th colspan="2" style="text-align:center">$10K Bankroll</th><th colspan="2" style="text-align:center">$50K Bankroll</th></tr>
+    <tr><th></th><th></th><th class="num">ROI</th><th class="num">Depth-Bound %</th><th class="num">ROI</th><th class="num">Depth-Bound %</th></tr>
+    <tr><td class="bold">100% (unvalidated proxy)</td><td class="num">$8,196</td><td class="num pos">+126%</td><td class="num">0.7%</td><td class="num pos">+126%</td><td class="num">0.7%</td></tr>
+    <tr><td>50%</td><td class="num">$4,098</td><td class="num pos">+126%</td><td class="num">0.7%</td><td class="num pos">+120%</td><td class="num">4.6%</td></tr>
+    <tr><td>20%</td><td class="num">$1,639</td><td class="num pos">+126%</td><td class="num">0.7%</td><td class="num pos">+95%</td><td class="num warn">32.7%</td></tr>
+    <tr style="background:#1a2033"><td class="bold">10%</td><td class="num">$820</td><td class="num pos">+120%</td><td class="num warn">4.6%</td><td class="num pos">+61%</td><td class="num neg">100.7%</td></tr>
+    <tr><td>5%</td><td class="num">$410</td><td class="num pos">+105%</td><td class="num warn">24.8%</td><td class="num pos">+31%</td><td class="num neg">100.7%</td></tr>
+    <tr><td>2%</td><td class="num">$164</td><td class="num pos">+61%</td><td class="num neg">100.7%</td><td class="num pos">+12%</td><td class="num neg">100.7%</td></tr>
+    <tr><td class="warn">1%</td><td class="num">$82</td><td class="num pos">+31%</td><td class="num neg">100.7%</td><td class="num pos warn">+6%</td><td class="num neg">100.7%</td></tr>
+  </table>
+  </div>
+
+  <div class="callout neg">
+    <div class="callout-title">What this actually says about the $50K+ capacity case</div>
+    <p>
+      At $10K bankroll, the strategy is fairly robust to depth being wrong — ROI only meaningfully erodes once
+      real fillable drops below ~10% of the proxy (≈$800/market). At $50K, it's much more fragile: depth starts
+      binding noticeably even at 50% of the proxy, and by 10% of the proxy (≈$820/market, the same threshold
+      that barely dents the $10K case) ROI at $50K has already fallen from +126% to +61% — roughly half the
+      headline return. <strong>The larger the bankroll, the more the entire case rests on a number that has
+      never been measured.</strong> A bankroll above ~$10–25K should be treated as contingent on direct
+      observation of opening-hour order book depth, not on this backtest.
+    </p>
+  </div>
+
+  <h3>What this means for the open question</h3>
+  <table>
+    <tr><th>If real opening depth is…</th><th>Then…</th></tr>
+    <tr><td class="bold">≥$1,500–2,000/market (20%+ of proxy)</td><td style="color:#94a3b8;font-size:13px">$50K+ bankroll case holds roughly as backtested; T1 capacity meaningfully exceeds T2</td></tr>
+    <tr><td class="bold">≈$500–800/market (5–10% of proxy)</td><td style="color:#94a3b8;font-size:13px">$10K bankroll still works well; above that, returns degrade materially — somewhere in this range a capacity ceiling similar to T2's emerges for T1</td></tr>
+    <tr><td class="bold">≤$150–200/market (≤2% of proxy)</td><td style="color:#94a3b8;font-size:13px">Depth binds even at $10K; T1's capacity advantage over T2 evaporates regardless of edge size</td></tr>
+  </table>
+  <p>
+    This is exactly the table that should be filled in by the passive depth-observation work
+    described in CLAUDE.md — it is currently a scenario analysis, not a measurement.
+  </p>
+</div>
+
+
+<!-- ===================== METHODOLOGY ===================== -->
+<div class="page" id="methodology">
+  <div class="section-label">Methodology</div>
+  <h1>Data sources and reproducibility</h1>
+
+  <table>
+    <tr><th>Component</th><th>Source</th><th>n</th><th>Walk-forward?</th></tr>
+    <tr>
+      <td>Per-league accuracy</td>
+      <td><code>backtest/backtest.py</code> run_backtest(), V2 params, eval start 2024-01-01</td>
+      <td class="num">1,386–1,975 matches/league</td>
+      <td class="pos">Yes — no lookahead</td>
+    </tr>
+    <tr>
+      <td>Entry-timing grid</td>
+      <td>New script: <code>backtest/t1_model_backtest.py</code>. Real ELOTracker walk-forward
+          predictions joined to real CLOB price histories in <code>data/polymarket_t1_resolved.json</code></td>
+      <td class="num">250 markets (272 team-matched, 22 dropped for &lt;10 games or cross-region)</td>
+      <td class="pos">Yes — ELO advanced chronologically, market predicted before result seen</td>
+    </tr>
+    <tr>
+      <td>Bankroll sweep / depth sensitivity</td>
+      <td>Same script, same 250-market universe, real trade-level P&amp;L</td>
+      <td class="num">153 trades at market open clearing &gt;10% edge</td>
+      <td class="pos">Yes</td>
+    </tr>
+  </table>
+
+  <h3>What changed vs. the existing CLAUDE.md T1 numbers</h3>
+  <p>
+    CLAUDE.md's T1 P&amp;L figures (162 trades, +0.160 mean CLV, 64.2% hit rate) come from
+    <code>backtest/t1_backtest.py</code>, a Monte Carlo simulator that assumes a model accuracy
+    parameter and assigns a fixed 0.65 probability to the model's "correct" side — it does not
+    run the actual ELO model. This report's numbers come from running the actual model. The
+    per-league accuracy figures match almost exactly (confirming those are reproducible); the
+    open-market trade count (153 vs. 162) and CLV (+0.169 vs. +0.160) are close but not identical,
+    likely due to differences in team-name matching coverage. The timing-decay shape is
+    <strong>directionally consistent</strong> with CLAUDE.md (edge decays, eventually goes
+    negative) but the fine-grained version places the zero-crossing earlier (~+6h to +24h after
+    open) than the coarse version implied (CLAUDE.md's coarsest sample point in this window was
+    24h, reported as "+0.008, nearly zero" — this rerun's +24h point is already at –5.4% ROI/bet).
+  </p>
+
+  <div class="callout info">
+    <div class="callout-title">Known limitations of this rerun</div>
+    <p>
+      Team-name matching dropped 28/296 markets (11 + 17 unmatched team names) and the region/min-games
+      gates dropped a further 22 — consistent with, but not identical to, the gates used elsewhere in
+      this codebase. The depth proxy (fillable as % of lifetime volume) is unchanged from the existing
+      T1 cost model and remains the single largest unvalidated assumption in every number in Part 3.
+      Bootstrap CIs use 5,000 resamples per timing point; with overlapping underlying markets across
+      adjacent time points, timing-point estimates are correlated with each other and should be read
+      as one continuous curve, not independent tests.
+    </p>
+  </div>
+
+  <p style="margin-top: 24px; color: #475569; font-size: 12px;">
+    Reproduce: <code>python backtest/t1_model_backtest.py --csv --json-out results.json</code>
+  </p>
+</div>
+
+
+<script>
+Chart.defaults.color = '#64748b';
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+Chart.defaults.font.size = 12;
+const gridColor = '#1e2533';
+const axisColor = '#334155';
+const tooltipStyle = {
+  backgroundColor: '#1a1f2e', borderColor: '#334155', borderWidth: 1,
+  titleColor: '#e2e8f0', bodyColor: '#94a3b8'
+};
+
+// 1. Per-league accuracy
+new Chart(document.getElementById('leagueAccChart'), {
+  type: 'bar',
+  data: {
+    labels: ['LCK', 'LEC', 'LCS', 'LPL'],
+    datasets: [
+      {
+        label: 'Model Accuracy (walk-forward)',
+        data: [67.7, 64.3, 62.8, 61.6],
+        backgroundColor: ['#10b981aa', '#64748baa', '#3b82f6aa', '#3b82f6aa'],
+        borderColor: ['#10b981', '#64748b', '#3b82f6', '#3b82f6'],
+        borderWidth: 2, borderRadius: 4
+      },
+      {
+        label: 'Polymarket Opening Line (T1 est. 53%)',
+        data: [53, 53, 53, 53],
+        backgroundColor: '#f59e0b22', borderColor: '#f59e0b', borderWidth: 2, borderRadius: 4, borderDash: [4,2]
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 14, padding: 16 } }, tooltip: tooltipStyle },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: '#64748b' }, border: { color: axisColor } },
+      y: { grid: { color: gridColor }, ticks: { color: '#64748b', callback: v => v+'%' }, border: { color: axisColor }, min: 45, max: 75,
+           title: { display: true, text: 'Accuracy (%)', color: '#475569', font: { size: 11 } } }
+    }
+  }
+});
+
+// 2. Timing centerpiece: CLV + hit rate + ROI w/ CI band
+{
+  const labels = ['open','+30m','+1h','+2h','+3h','+6h','+9h','+12h','+18h','+24h'];
+  const roi = [28.8, 27.3, 35.8, 38.8, 33.5, 21.3, 13.0, 16.7, 12.3, -5.4];
+  const ciLo = [12.1, 10.4, 15.8, 14.4, 8.1, -6.0, -14.0, -10.0, -12.6, -29.8];
+  const ciHi = [46.3, 45.1, 56.1, 65.8, 60.8, 50.3, 43.0, 47.0, 39.0, 21.9];
+  const hitRate = [63.0, 62.8, 63.7, 59.4, 57.6, 50.4, 47.2, 48.1, 46.6, 38.9];
+  const clv = [16.9, 15.2, 15.3, 15.5, 14.1, 10.2, 9.2, 9.5, 8.9, 8.3];
+  const nTrades = [154,145,135,128,125,115,108,106,118,108];
+
+  new Chart(document.getElementById('timingCenterpiece'), {
+    data: {
+      labels,
+      datasets: [
+        {
+          type: 'line', label: '95% CI band (upper)', data: ciHi,
+          borderColor: 'transparent', backgroundColor: '#3b82f615',
+          fill: '+1', pointRadius: 0, order: 5, tension: 0.3
+        },
+        {
+          type: 'line', label: '95% CI band (lower)', data: ciLo,
+          borderColor: 'transparent', backgroundColor: '#3b82f615',
+          fill: false, pointRadius: 0, order: 5, tension: 0.3
+        },
+        {
+          type: 'line', label: 'ROI per bet (%)', data: roi,
+          borderColor: '#3b82f6', backgroundColor: '#3b82f6',
+          borderWidth: 3, pointRadius: 5,
+          pointBackgroundColor: ctx => roi[ctx.dataIndex] >= 0 ? '#3b82f6' : '#f87171',
+          tension: 0.3, order: 1, yAxisID: 'y'
+        },
+        {
+          type: 'line', label: 'Hit Rate (%)', data: hitRate,
+          borderColor: '#34d399', borderWidth: 2, borderDash: [5,3],
+          pointRadius: 3, tension: 0.3, order: 2, yAxisID: 'y2'
+        },
+        {
+          type: 'line', label: 'Mean CLV (×100)', data: clv,
+          borderColor: '#f59e0b', borderWidth: 2, borderDash: [2,2],
+          pointRadius: 3, tension: 0.3, order: 3, yAxisID: 'y2'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#94a3b8', boxWidth: 14, padding: 14,
+            filter: item => !item.text.includes('CI band')
+          }
+        },
+        tooltip: {
+          ...tooltipStyle,
+          callbacks: {
+            afterBody: ctx => {
+              const i = ctx[0].dataIndex;
+              return `n trades: ${nTrades[i]}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: '#64748b' }, border: { color: axisColor },
+             title: { display: true, text: 'Time since market open', color: '#475569', font: { size: 11 } } },
+        y: { position: 'left', grid: { color: gridColor }, ticks: { color: '#64748b', callback: v => v+'%' },
+             border: { color: axisColor }, min: -40, max: 75,
+             title: { display: true, text: 'ROI per bet (%)', color: '#475569', font: { size: 11 } } },
+        y2: { position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#64748b', callback: v => v+'%' },
+              border: { color: axisColor }, min: 0, max: 80,
+              title: { display: true, text: 'Hit rate % / CLV×100', color: '#475569', font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+// 3. Hours-before-match
+new Chart(document.getElementById('hoursBeforeChart'), {
+  type: 'bar',
+  data: {
+    labels: ['24h before','12h before','8h before','6h before','4h before','3h before','2h before','1h before'],
+    datasets: [{
+      label: 'ROI per bet (%)',
+      data: [-9.3, -13.5, -11.0, -12.8, -11.6, -6.1, -3.2, -0.1],
+      backgroundColor: '#f8717166', borderColor: '#f87171', borderWidth: 2, borderRadius: 4
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false }, tooltip: tooltipStyle },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: '#64748b' }, border: { color: axisColor } },
+      y: { grid: { color: gridColor }, ticks: { color: '#64748b', callback: v => v+'%' }, border: { color: axisColor },
+           title: { display: true, text: 'ROI per bet (%)', color: '#475569', font: { size: 11 } } }
+    }
+  }
+});
+
+// 4. Bankroll P&L
+new Chart(document.getElementById('bankrollChart'), {
+  type: 'bar',
+  data: {
+    labels: ['$1K','$10K','$25K','$50K'],
+    datasets: [
+      { label: '1.0× cost', data: [126,126,126,126], backgroundColor: '#34d39977', borderColor: '#34d399', borderWidth: 1.5, borderRadius: 3 },
+      { label: '1.5× cost', data: [105,105,105,105], backgroundColor: '#3b82f677', borderColor: '#3b82f6', borderWidth: 1.5, borderRadius: 3 },
+      { label: '2.0× cost', data: [87,87,87,87], backgroundColor: '#f59e0b77', borderColor: '#f59e0b', borderWidth: 1.5, borderRadius: 3 },
+      { label: '3.0× cost', data: [56,56,56,56], backgroundColor: '#f8717177', borderColor: '#f87171', borderWidth: 1.5, borderRadius: 3 }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { labels: { color: '#94a3b8', boxWidth: 14, padding: 14 } },
+      tooltip: { ...tooltipStyle, callbacks: { label: ctx => ` ${ctx.dataset.label}: +${ctx.parsed.y}% ROI` } }
+    },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: '#64748b' }, border: { color: axisColor } },
+      y: { grid: { color: gridColor }, ticks: { color: '#64748b', callback: v => '+'+v+'%' }, border: { color: axisColor },
+           title: { display: true, text: 'ROI (%, identical across bankroll — cap-bound, not depth-bound)', color: '#475569', font: { size: 11 } } }
+    }
+  }
+});
+
+// 5. Depth sensitivity
+new Chart(document.getElementById('depthSensChart'), {
+  type: 'line',
+  data: {
+    labels: ['100%','50%','20%','10%','5%','2%','1%'],
+    datasets: [
+      {
+        label: '$10K bankroll ROI', data: [126,126,126,120,105,61,31],
+        borderColor: '#3b82f6', backgroundColor: '#3b82f615', borderWidth: 2.5, tension: 0.3, fill: true, pointRadius: 4
+      },
+      {
+        label: '$50K bankroll ROI', data: [126,120,95,61,31,12,6],
+        borderColor: '#f87171', backgroundColor: '#f8717115', borderWidth: 2.5, tension: 0.3, fill: true, pointRadius: 4
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { labels: { color: '#94a3b8', boxWidth: 14, padding: 14 } },
+      tooltip: { ...tooltipStyle, callbacks: { label: ctx => ` ${ctx.dataset.label}: +${ctx.parsed.y}%` } }
+    },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: '#64748b' }, border: { color: axisColor },
+           title: { display: true, text: 'Assumed real depth, as % of the (unvalidated) lifetime-volume proxy', color: '#475569', font: { size: 11 } } },
+      y: { grid: { color: gridColor }, ticks: { color: '#64748b', callback: v => '+'+v+'%' }, border: { color: axisColor }, min: 0,
+           title: { display: true, text: 'ROI (%)', color: '#475569', font: { size: 11 } } }
+    }
+  }
+});
+</script>
+</body>
+</html>
