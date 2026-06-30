@@ -49,10 +49,11 @@ def compute_blended_rating(
 # ---------------------------------------------------------------------------
 # DB-backed lookups
 # ---------------------------------------------------------------------------
-def get_team_rating(team_name: str, blend_k: int = 5) -> float:
+def get_team_rating(team_name: str, blend_k: int = 5, use_soloq: bool = False) -> float:
     """
     Return the blended rating for a single team.
 
+    V2 default: use_soloq=False — pro ELO only, no soloq baseline.
     Falls back to DEFAULT_ELO if the team isn't in the teams table.
     """
     conn = sqlite3.connect(DB_PATH)
@@ -66,15 +67,20 @@ def get_team_rating(team_name: str, blend_k: int = 5) -> float:
         return DEFAULT_ELO
 
     pro_elo, games_played, league = float(row[0]), int(row[1]), row[2] or ""
-    soloq_elos = get_team_soloq_elos()
-    soloq_elo = soloq_elos.get(team_name, DEFAULT_ELO + get_league_offset(league))
+
+    if use_soloq:
+        soloq_elos = get_team_soloq_elos()
+        soloq_elo = soloq_elos.get(team_name, DEFAULT_ELO + get_league_offset(league))
+    else:
+        soloq_elo = DEFAULT_ELO + get_league_offset(league)
 
     return compute_blended_rating(pro_elo, soloq_elo, games_played, blend_k)
 
 
-def get_all_ratings(blend_k: int = 5) -> Dict[str, float]:
+def get_all_ratings(blend_k: int = 5, use_soloq: bool = False) -> Dict[str, float]:
     """
     Return blended ratings for every team in the teams table.
+    V2 default: use_soloq=False.
     """
     conn = sqlite3.connect(DB_PATH)
     rows = conn.execute(
@@ -82,7 +88,10 @@ def get_all_ratings(blend_k: int = 5) -> Dict[str, float]:
     ).fetchall()
     conn.close()
 
-    soloq_elos = get_team_soloq_elos()
+    if use_soloq:
+        soloq_elos = get_team_soloq_elos()
+    else:
+        soloq_elos = {}
 
     return {
         team: compute_blended_rating(

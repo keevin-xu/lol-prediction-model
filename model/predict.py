@@ -270,7 +270,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="LoL T2 win probability predictor")
     parser.add_argument("teams", nargs="*", help="Two team names to predict")
     parser.add_argument("--list", action="store_true", help="List all teams by rating")
-    parser.add_argument("--blend-k", type=int, default=10, help="Blend denominator")
+    parser.add_argument("--blend-k", type=int, default=5, help="Blend denominator")
     parser.add_argument("--scale", type=float, default=400.0, help="ELO scale factor")
     parser.add_argument("--bo", type=int, default=1, choices=[1, 3, 5, 7], help="Best-of series length (1, 3, 5, or 7)")
     parser.add_argument("--side", type=str, choices=["blue", "red"], default=None, help="Side for first team (blue/red)")

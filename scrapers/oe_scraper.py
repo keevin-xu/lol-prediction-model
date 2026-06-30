@@ -55,6 +55,13 @@ GDRIVE_FOLDER_ID = "1gLSw0RLjBbtaNy0dgnGQDAZOHIgCe-HH"
 DATALISK_URL = "https://oe.datalisk.io/matchData"
 DATALISK_API_KEY = "f561197a-82ea-4e54-acd2-386979018a7a"
 
+T1_LEAGUES = {
+    "LCK",           # Korea
+    "LPL",           # China
+    "LCS",           # North America
+    "LEC",           # Europe (also in T2 for ERL-era data)
+}
+
 T2_LEAGUES = {
     # North America
     "NACL",
@@ -282,8 +289,15 @@ def download_year(
 # ---------------------------------------------------------------------------
 # Loading helpers (also imported by model code)
 # ---------------------------------------------------------------------------
-def _load_raw(years: list) -> pd.DataFrame:
-    """Read CSVs for *years*, concatenate, and filter to T2_LEAGUES."""
+def _load_raw(years: list, tier: str = "t2") -> pd.DataFrame:
+    """Read CSVs for *years*, concatenate, and filter to the requested tier."""
+    if tier == "t1":
+        leagues = T1_LEAGUES
+    elif tier == "all":
+        leagues = T1_LEAGUES | T2_LEAGUES
+    else:
+        leagues = T2_LEAGUES
+
     frames = []
     for year in years:
         path = RAW_DIR / f"{year}.csv"
@@ -292,22 +306,22 @@ def _load_raw(years: list) -> pd.DataFrame:
                 f"Missing {path}. Run download_year({year}) first."
             )
         df = pd.read_csv(path, low_memory=False)
-        df = df[df["league"].isin(T2_LEAGUES)]
+        df = df[df["league"].isin(leagues)]
         frames.append(df)
     return pd.concat(frames, ignore_index=True)
 
 
-def load_player_rows(years: list = None) -> pd.DataFrame:
+def load_player_rows(years: list = None, tier: str = "t2") -> pd.DataFrame:
     """One row per player per game (position != 'team')."""
     years = years or YEARS
-    df = _load_raw(years)
+    df = _load_raw(years, tier=tier)
     return df[df["position"] != "team"].reset_index(drop=True)
 
 
-def load_team_rows(years: list = None) -> pd.DataFrame:
+def load_team_rows(years: list = None, tier: str = "t2") -> pd.DataFrame:
     """One row per team per game (position == 'team')."""
     years = years or YEARS
-    df = _load_raw(years)
+    df = _load_raw(years, tier=tier)
     return df[df["position"] == "team"].reset_index(drop=True)
 
 
@@ -337,16 +351,34 @@ def build_match_rows(team_df: pd.DataFrame) -> pd.DataFrame:
         except (ValueError, TypeError):
             gamelength = 0
 
+        def _safe_int(val, default=None):
+            try:
+                return int(val)
+            except (ValueError, TypeError):
+                return default
+
+        def _safe_float(val, default=None):
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return default
+
         records.append({
-            "gameid":     str(gameid),
-            "date":       str(b.get("date", "")),
-            "league":     str(b.get("league", "")),
-            "patch":      str(b.get("patch", "")),
-            "playoffs":   int(b.get("playoffs", 0)),
-            "blue_team":  str(b.get("teamname", "")),
-            "red_team":   str(r.get("teamname", "")),
-            "winner":     "blue" if result_val == 1 else "red",
-            "gamelength": gamelength,
+            "gameid":            str(gameid),
+            "date":              str(b.get("date", "")),
+            "league":            str(b.get("league", "")),
+            "patch":             str(b.get("patch", "")),
+            "playoffs":          int(b.get("playoffs", 0)),
+            "blue_team":         str(b.get("teamname", "")),
+            "red_team":          str(r.get("teamname", "")),
+            "winner":            "blue" if result_val == 1 else "red",
+            "gamelength":        gamelength,
+            "blue_kills":        _safe_int(b.get("teamkills")),
+            "red_kills":         _safe_int(r.get("teamkills")),
+            "blue_deaths":       _safe_int(b.get("teamdeaths")),
+            "red_deaths":        _safe_int(r.get("teamdeaths")),
+            "blue_golddiffat15": _safe_float(b.get("golddiffat15")),
+            "red_golddiffat15":  _safe_float(r.get("golddiffat15")),
         })
 
     return pd.DataFrame(records)
@@ -366,10 +398,19 @@ def upsert_matches(matches_df: pd.DataFrame) -> int:
         for _, row in matches_df.iterrows():
             conn.execute(
                 """
-                INSERT OR IGNORE INTO matches
+                INSERT INTO matches
                     (gameid, date, league, patch, playoffs,
-                     blue_team, red_team, winner, gamelength)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     blue_team, red_team, winner, gamelength,
+                     blue_kills, red_kills, blue_deaths, red_deaths,
+                     blue_golddiffat15, red_golddiffat15)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(gameid) DO UPDATE SET
+                    blue_kills = excluded.blue_kills,
+                    red_kills = excluded.red_kills,
+                    blue_deaths = excluded.blue_deaths,
+                    red_deaths = excluded.red_deaths,
+                    blue_golddiffat15 = excluded.blue_golddiffat15,
+                    red_golddiffat15 = excluded.red_golddiffat15
                 """,
                 (
                     row["gameid"],
@@ -381,6 +422,12 @@ def upsert_matches(matches_df: pd.DataFrame) -> int:
                     row["red_team"],
                     row["winner"],
                     row["gamelength"],
+                    row.get("blue_kills"),
+                    row.get("red_kills"),
+                    row.get("blue_deaths"),
+                    row.get("red_deaths"),
+                    row.get("blue_golddiffat15"),
+                    row.get("red_golddiffat15"),
                 ),
             )
             inserted += conn.execute("SELECT changes()").fetchone()[0]
@@ -394,6 +441,15 @@ def upsert_matches(matches_df: pd.DataFrame) -> int:
 # Entry point
 # ---------------------------------------------------------------------------
 def main() -> None:
+    import argparse
+    parser = argparse.ArgumentParser(description="Oracle's Elixir match scraper")
+    parser.add_argument("--tier", choices=["t1", "t2", "all"], default="t2",
+                        help="Which tier to scrape: t1, t2 (default), or all")
+    args = parser.parse_args()
+
+    tier = args.tier
+    tier_label = {"t1": "T1", "t2": "T2", "all": "T1+T2"}[tier]
+
     RAW_DIR.mkdir(parents=True, exist_ok=True)
 
     session = _make_session()
@@ -405,16 +461,16 @@ def main() -> None:
         download_year(year, gdrive_ids=gdrive_ids, remote_meta=remote_meta, session=session)
 
     # 2. Load player rows (informational log only)
-    logger.info("Loading player rows…")
-    player_df = load_player_rows(YEARS)
+    logger.info(f"Loading {tier_label} player rows…")
+    player_df = load_player_rows(YEARS, tier=tier)
     n_games = player_df["gameid"].nunique()
     logger.info(
-        f"  {len(player_df):,} T2 player-game rows | {n_games:,} unique games"
+        f"  {len(player_df):,} {tier_label} player-game rows | {n_games:,} unique games"
     )
 
     # 3. Build one match row per game from team-summary rows
-    logger.info("Building match rows from team-summary data…")
-    team_df = load_team_rows(YEARS)
+    logger.info(f"Building {tier_label} match rows from team-summary data…")
+    team_df = load_team_rows(YEARS, tier=tier)
     matches_df = build_match_rows(team_df)
     logger.info(f"  {len(matches_df):,} match rows built")
 
@@ -424,7 +480,7 @@ def main() -> None:
     skipped = len(matches_df) - n_new
     logger.info(f"  {n_new:,} new matches inserted | {skipped:,} already present")
 
-    logger.info("OE scraper complete.")
+    logger.info(f"OE scraper complete ({tier_label}).")
 
 
 if __name__ == "__main__":

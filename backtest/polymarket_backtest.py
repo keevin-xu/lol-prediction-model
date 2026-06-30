@@ -33,7 +33,7 @@ sys.path.insert(0, str(_ROOT))
 from backtest.backtest import ELOTracker, load_matches
 from model.calibration import PlattCalibrator
 from model.predict import check_cross_region
-from model.pro_elo import HALF_LIFE_DAYS, compute_regional_offsets, get_team_soloq_elos
+from model.pro_elo import HALF_LIFE_DAYS
 from scrapers.team_matcher import match_team_name
 
 DB_PATH = _ROOT / "db" / "lol_model.db"
@@ -233,14 +233,14 @@ def run_backtest(
     # predict each market using ONLY prior match data (no lookahead)
     raw_markets.sort(key=lambda m: m["date"])
     all_matches = load_matches()
-    soloq_baselines = get_team_soloq_elos()
-    regional_offsets = compute_regional_offsets()
     calibrator = PlattCalibrator()
     calibrator.load()
 
+    # V2 params: K=32, MOV=1.5, no soloq, identity calibration
     tracker = ELOTracker(
-        K=64, blend_k=5, scale=400, half_life_days=HALF_LIFE_DAYS,
-        soloq_baselines=soloq_baselines, regional_offsets=regional_offsets,
+        K=32, blend_k=5, scale=400, half_life_days=HALF_LIFE_DAYS,
+        soloq_baselines={}, regional_offsets={},
+        mov_weight=1.5,
     )
 
     match_idx = 0
@@ -249,8 +249,12 @@ def run_backtest(
     for market in raw_markets:
         # Advance tracker through all matches BEFORE this market's date
         while match_idx < len(all_matches) and all_matches[match_idx][1] < market["date"]:
-            gameid, date, league, blue, red, winner = all_matches[match_idx]
-            tracker.update(blue, red, winner, league, date)
+            row = all_matches[match_idx]
+            gameid, date, league, blue, red, winner = row[:6]
+            stats = dict(blue_kills=row[6], red_kills=row[7],
+                         blue_deaths=row[8], red_deaths=row[9],
+                         blue_gd15=row[10], red_gd15=row[11])
+            tracker.update(blue, red, winner, league, date, **stats)
             match_idx += 1
 
         db_a, db_b = market["db_a"], market["db_b"]

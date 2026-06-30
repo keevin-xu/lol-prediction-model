@@ -30,7 +30,8 @@ DB_PATH = _ROOT / "db" / "lol_model.db"
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-K = 64
+K = 32
+MOV_WEIGHT = 1.5
 DEFAULT_ELO = 1500.0
 
 ROLE_WEIGHTS = {
@@ -48,6 +49,9 @@ MIN_ROLES_FOR_BASELINE = 3
 
 # Maps OE league abbreviation → region code (matching players.region values)
 LEAGUE_TO_REGION: Dict[str, str] = {
+    "LCK": "KR",
+    "LPL": "CN",
+    "LCS": "NA",
     "NACL": "NA",
     "LCKC": "KR",
     "EM": "EU",
@@ -207,6 +211,30 @@ def expected_score(elo_a: float, elo_b: float) -> float:
     return 1.0 / (1.0 + 10.0 ** ((elo_b - elo_a) / 400.0))
 
 
+def _mov_multiplier(
+    winner_kills: Optional[int],
+    loser_kills: Optional[int],
+    winner_gd15: Optional[float],
+    mov_weight: float = MOV_WEIGHT,
+) -> float:
+    """Scale K by margin of victory. Returns 1.0 when stats are missing."""
+    if mov_weight == 0:
+        return 1.0
+    import math
+    signals = []
+    if winner_kills is not None and loser_kills is not None:
+        kill_diff = winner_kills - loser_kills
+        kill_signal = math.log1p(max(kill_diff, 0)) / math.log1p(20)
+        signals.append(min(kill_signal, 1.5))
+    if winner_gd15 is not None:
+        gd_signal = max(winner_gd15, 0) / 5000.0
+        signals.append(min(gd_signal, 1.5))
+    if not signals:
+        return 1.0
+    avg_signal = sum(signals) / len(signals)
+    return 1.0 + mov_weight * avg_signal
+
+
 def _parse_date(date_str: str) -> datetime:
     """Parse date string from matches table (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)."""
     try:
@@ -259,14 +287,20 @@ def run_elo(
 
     conn = sqlite3.connect(DB_PATH)
     matches = conn.execute(
-        "SELECT gameid, date, league, blue_team, red_team, winner "
+        "SELECT gameid, date, league, blue_team, red_team, winner, "
+        "blue_kills, red_kills, blue_deaths, red_deaths, "
+        "blue_golddiffat15, red_golddiffat15 "
         "FROM matches ORDER BY date ASC, gameid ASC"
     ).fetchall()
     conn.close()
 
-    logger.info(f"Processing {len(matches)} matches (half_life={half_life_days}d)…")
+    logger.info(f"Processing {len(matches)} matches (K={K}, mov_weight={MOV_WEIGHT}, half_life={half_life_days}d)…")
 
-    for i, (gameid, date, league, blue, red, winner) in enumerate(matches):
+    for i, row in enumerate(matches):
+        gameid, date, league, blue, red, winner = row[:6]
+        blue_kills, red_kills = row[6], row[7]
+        blue_gd15, red_gd15 = row[10], row[11]
+
         match_dt = _parse_date(date)
 
         blue_elo = _get_elo(blue, league)
@@ -283,19 +317,24 @@ def run_elo(
             elos[red] = red_elo
 
         blue_exp = expected_score(blue_elo, red_elo)
-        red_exp = 1.0 - blue_exp
 
         blue_actual = 1.0 if winner == "blue" else 0.0
-        red_actual = 1.0 - blue_actual
 
-        elos[blue] = blue_elo + K * (blue_actual - blue_exp)
-        elos[red] = red_elo + K * (red_actual - red_exp)
+        # Margin-of-victory K scaling
+        if winner == "blue":
+            mov_mult = _mov_multiplier(blue_kills, red_kills, blue_gd15)
+        else:
+            mov_mult = _mov_multiplier(red_kills, blue_kills, red_gd15)
+        k_adj = K * mov_mult
+
+        elos[blue] = blue_elo + k_adj * (blue_actual - blue_exp)
+        elos[red] = red_elo + k_adj * ((1.0 - blue_actual) - (1.0 - blue_exp))
         games[blue] = games.get(blue, 0) + 1
         games[red] = games.get(red, 0) + 1
         last_played[blue] = match_dt
         last_played[red] = match_dt
 
-        if (i + 1) % 2000 == 0:
+        if (i + 1) % 5000 == 0:
             logger.info(f"  Processed {i + 1}/{len(matches)} matches")
 
     logger.info(f"ELO computed for {len(elos)} teams")
@@ -359,22 +398,17 @@ def save_to_db(
 # Standalone entry point
 # ---------------------------------------------------------------------------
 def main() -> None:
-    logger.info("Computing team soloq baselines…")
-    soloq_elos = get_team_soloq_elos()
-    logger.info(f"  {len(soloq_elos)} teams with soloq baseline")
+    # V2: no soloq baselines. Teams initialize at 1500 + regional offset.
+    logger.info("Running V2 ELO engine (no soloq baselines)…")
+    results = run_elo(soloq_elos=None)
 
-    logger.info("Running ELO engine over all matches…")
-    results = run_elo(soloq_elos)
-
-    n = save_to_db(results, soloq_elos)
+    n = save_to_db(results)
     logger.info(f"Saved {n} teams to DB")
 
     sorted_teams = sorted(results.items(), key=lambda x: x[1]["elo"], reverse=True)
     logger.info("Top 15 teams by ELO:")
     for name, data in sorted_teams[:15]:
-        baseline = soloq_elos.get(name)
-        tag = f"  (soloq baseline: {baseline:.0f})" if baseline else ""
-        logger.info(f"  {name:30} {data['elo']:7.1f}  ({data['games_played']} games){tag}")
+        logger.info(f"  {name:30} {data['elo']:7.1f}  ({data['games_played']} games)")
 
     logger.info("Bottom 10 teams by ELO:")
     for name, data in sorted_teams[-10:]:

@@ -40,7 +40,13 @@ CREATE TABLE IF NOT EXISTS matches (
     blue_team TEXT,
     red_team TEXT,
     winner TEXT,
-    gamelength INTEGER
+    gamelength INTEGER,
+    blue_kills INTEGER,
+    red_kills INTEGER,
+    blue_deaths INTEGER,
+    red_deaths INTEGER,
+    blue_golddiffat15 REAL,
+    red_golddiffat15 REAL
 );
 
 CREATE TABLE IF NOT EXISTS rosters (
@@ -233,3 +239,52 @@ CREATE INDEX IF NOT EXISTS idx_live_signals_market ON live_signals(market_id);
 CREATE INDEX IF NOT EXISTS idx_live_bets_market ON live_bets(market_id);
 CREATE INDEX IF NOT EXISTS idx_live_bets_status ON live_bets(status);
 CREATE INDEX IF NOT EXISTS idx_clv_log_bet ON clv_log(bet_id);
+
+-- ===== T1 Depth Observation (paper-only, model validated, fill depth unknown) =====
+--
+-- Purpose: measure whether the 6-day-out opening book has real depth, or
+-- whether the +0.16 CLV backtest result is on unfillable size. The book
+-- snapshot (Task 2 fields) is an INDEPENDENT observation of the real order
+-- book — it must never be derived from estimate_fillable_at_open(). The
+-- estimate is logged only for side-by-side comparison (estimate_error),
+-- never used to size the bet or to populate the depth fields.
+CREATE TABLE IF NOT EXISTS t1_paper_bets (
+    id INTEGER PRIMARY KEY,
+    market_id TEXT NOT NULL,
+    team_a TEXT,
+    team_b TEXT,
+    league TEXT,
+    market_create_ts TEXT,      -- the six-day-out open (decision-time anchor)
+    bet_logged_ts TEXT,
+    hours_before_match REAL,   -- entry point on the correction curve
+    model_prob REAL,
+    open_price REAL,
+    edge REAL,
+    bet_side TEXT,
+    bet_team TEXT,
+    -- Independent book observation (CLOB /book, never derived from the estimator)
+    book_snapshot_ts TEXT,
+    best_bid REAL,
+    best_ask REAL,
+    spread REAL,
+    depth_within_1pct REAL,
+    depth_within_3pct REAL,
+    depth_within_5pct REAL,
+    book_levels TEXT,          -- raw JSON: top ~10 bid/ask levels
+    volume_at_snapshot REAL,
+    -- Estimate vs reality (logged side by side, neither feeds the other)
+    estimated_fillable REAL,   -- estimate_fillable_at_open(volume) — prediction
+    actual_fillable REAL,      -- = depth_within_3pct — reality
+    estimate_error REAL,       -- estimated_fillable - actual_fillable
+    -- Sizing + outcome — bet_size is capped by actual_fillable, NEVER estimated_fillable
+    bet_size REAL,
+    entry_price REAL,
+    resolved INTEGER DEFAULT 0,
+    won INTEGER,
+    clv REAL,
+    pnl REAL,
+    suppressed_reason TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_t1_paper_bets_market ON t1_paper_bets(market_id);
+CREATE INDEX IF NOT EXISTS idx_t1_paper_bets_resolved ON t1_paper_bets(resolved);
