@@ -26,7 +26,7 @@ Liquidity model: volume-dependent costs (3-8%), opening fillable capped at 1-3% 
 
 | Component | Status | Notes |
 |---|---|---|
-| OE scraper | ✅ Done | 10,372 T2 matches (2024–2026) in SQLite |
+| OE scraper | ✅ Done | 14,082 T1+T2 matches (2024–2026) in `db/lol_model.db` — see note below |
 | TTP scraper | ✅ Done | 2,291 players with soloq ratings |
 | Roster scraper | ✅ Done | 598 roster entries across 97 teams |
 | Riot API scraper | ✅ Done | Backfills soloq for unmatched roster players |
@@ -44,6 +44,19 @@ Liquidity model: volume-dependent costs (3-8%), opening fillable capped at 1-3% 
 | V3 features (107 cols) | ❌ Abandoned | 0% accuracy gain over V1 — archived |
 | Draft features | ❌ Abandoned | 0% accuracy gain — archived |
 | Live in-game model | ❌ No-go | Mid-game liquidity worse than open |
+
+**Two different match counts exist in this project — don't conflate them:**
+- `db/lol_model.db`'s `matches` table — fed by `scrapers/oe_scraper.py`, whose `YEARS = [2024, 2025, 2026]` caps it to 2024–2026 only. This is what `pro_elo.py` and `live_engine.py` actually read at runtime.
+- `data/newmetrics/games.csv` — a frozen, gitignored research dataset, 20,587 T2 games spanning 2021–2026. Used for the V2 model's offline analysis (`t1-real-model-deep-dive` branch). Never loaded into `lol_model.db`.
+
+An earlier doc edit copied the 20,587/2021–2026 figure onto the *SQLite* line, implying the live DB had that history. It never did — that line was wrong, not the DB. Don't re-derive this from scratch next time you notice the numbers don't match; this is just two files with different scopes.
+
+**`db/lol_model.db` is gitignored, has no backup, and a `git reset --hard` can erase it with no way back except re-deriving it.** If that happens, restore it with:
+```bash
+python3 scrapers/oe_scraper.py --tier all   # repopulates matches table from cached/raw OE CSVs, 2024–2026, T1+T2
+python3 model/pro_elo.py                    # rebuilds the teams table (ELOs) from the matches table
+```
+This is a ~2-minute recovery, not a re-investigation — `--tier all` is the part that's easy to forget (default is `t2`, which silently drops LCK/LPL/LCS and breaks T1 prediction tests).
 
 ---
 
