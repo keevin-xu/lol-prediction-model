@@ -8,9 +8,9 @@ __pycache__/
 # Data (never commit raw or processed data)
 data/
 
-# Database
-# db/*.db
-# db/*.sqlite
+# Database (rebuildable: scrapers/oe_scraper.py --tier all && model/pro_elo.py)
+db/*.db
+db/*.sqlite
 
 # Jupyter
 .ipynb_checkpoints/
