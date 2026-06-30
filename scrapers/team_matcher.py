@@ -16,7 +16,7 @@ import re
 import sqlite3
 import sys
 import unicodedata
-from difflib import get_close_matches
+from difflib import SequenceMatcher, get_close_matches
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -92,6 +92,19 @@ _SUFFIX_EXPANSIONS = [" Challengers", " Academy", " Esports", " Gaming", " Youth
 _ZERO_WIDTH_CHARS = "​⁠﻿⠀"
 
 
+def _core_match_ok(cleaned: str, candidate: str, cutoff: float) -> bool:
+    """
+    Guard against generic-suffix inflation: "Top Esports" vs "WAP Esports"
+    scores 0.82 on the raw strings purely because both share "Esports",
+    even though the actual team names "Top" vs "WAP" have nothing in
+    common (ratio 0.33). Requires the suffix/diacritic-stripped core names
+    to independently clear the cutoff before a fuzzy hit is accepted.
+    """
+    core_ext = normalize_team_name(cleaned)
+    core_cand = normalize_team_name(candidate)
+    return SequenceMatcher(None, core_ext, core_cand).ratio() >= cutoff
+
+
 def match_team_name(
     external_name: str,
     db_teams: List[str],
@@ -121,9 +134,11 @@ def match_team_name(
         return lower_map[cleaned.lower()]
 
     # Tier 3: raw-lowercase fuzzy match (no diacritics/suffix stripping —
-    # catches near-exact names that normalization would otherwise distort)
+    # catches near-exact names that normalization would otherwise distort).
+    # Gated by _core_match_ok so a shared generic suffix can't carry an
+    # unrelated core name across the cutoff.
     hits = get_close_matches(cleaned.lower(), list(lower_map.keys()), n=1, cutoff=cutoff)
-    if hits:
+    if hits and _core_match_ok(cleaned, lower_map[hits[0]], cutoff):
         return lower_map[hits[0]]
 
     # Tier 4: normalized fuzzy match (diacritics stripped, known suffixes stripped)
@@ -135,11 +150,12 @@ def match_team_name(
 
     # Tier 5: suffix-expansion fuzzy match — try appending a known suffix to
     # the external name in case the DB's full name carries one the external
-    # source dropped (e.g. external "T1" vs DB "T1 Academy").
+    # source dropped (e.g. external "T1" vs DB "T1 Academy"). Gated the same
+    # way: the unexpanded core names must independently clear the cutoff.
     for suffix in _SUFFIX_EXPANSIONS:
         expanded = normalize_team_name(cleaned + suffix)
         hits = get_close_matches(expanded, list(norm_map.keys()), n=1, cutoff=cutoff)
-        if hits:
+        if hits and _core_match_ok(cleaned, norm_map[hits[0]], cutoff):
             return norm_map[hits[0]]
 
     return None
