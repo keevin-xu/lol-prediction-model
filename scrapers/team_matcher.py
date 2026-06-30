@@ -84,15 +84,23 @@ def load_db_team_names() -> List[str]:
     return names
 
 
+_SUFFIX_EXPANSIONS = [" Challengers", " Academy", " Esports", " Gaming", " Youth"]
+
+# Zero-width / invisible characters that occasionally leak in from scraped
+# sources (zero-width space, word joiner, BOM, braille blank) and silently
+# break exact-match lookups.
+_ZERO_WIDTH_CHARS = "​⁠﻿⠀"
+
+
 def match_team_name(
     external_name: str,
     db_teams: List[str],
     source: str = "unknown",
     cutoff: float = DEFAULT_CUTOFF,
 ) -> Optional[str]:
-    cleaned = external_name.strip()
+    cleaned = external_name.strip().lstrip(_ZERO_WIDTH_CHARS).strip()
 
-    # Tier 1: exact alias lookup (source-specific)
+    # Tier 1: exact alias lookup (source-specific, then global)
     conn = sqlite3.connect(DB_PATH)
     row = conn.execute(
         "SELECT db_team_name FROM team_name_aliases WHERE external_name = ? AND source = ?",
@@ -107,12 +115,32 @@ def match_team_name(
     if row:
         return row[0]
 
-    # Tier 2: normalized fuzzy match
+    # Tier 2: exact case-insensitive match against DB names
+    lower_map = {t.lower(): t for t in db_teams}
+    if cleaned.lower() in lower_map:
+        return lower_map[cleaned.lower()]
+
+    # Tier 3: raw-lowercase fuzzy match (no diacritics/suffix stripping —
+    # catches near-exact names that normalization would otherwise distort)
+    hits = get_close_matches(cleaned.lower(), list(lower_map.keys()), n=1, cutoff=cutoff)
+    if hits:
+        return lower_map[hits[0]]
+
+    # Tier 4: normalized fuzzy match (diacritics stripped, known suffixes stripped)
     norm_ext = normalize_team_name(cleaned)
     norm_map = {normalize_team_name(t): t for t in db_teams}
     hits = get_close_matches(norm_ext, list(norm_map.keys()), n=1, cutoff=cutoff)
     if hits:
         return norm_map[hits[0]]
+
+    # Tier 5: suffix-expansion fuzzy match — try appending a known suffix to
+    # the external name in case the DB's full name carries one the external
+    # source dropped (e.g. external "T1" vs DB "T1 Academy").
+    for suffix in _SUFFIX_EXPANSIONS:
+        expanded = normalize_team_name(cleaned + suffix)
+        hits = get_close_matches(expanded, list(norm_map.keys()), n=1, cutoff=cutoff)
+        if hits:
+            return norm_map[hits[0]]
 
     return None
 

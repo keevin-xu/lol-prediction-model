@@ -7,7 +7,13 @@ ALL EXECUTION IS PAPER MODE. LIVE_TRADING defaults to False.
 No real-money orders are placed until explicitly enabled after
 30+ paper bets show positive live CLV.
 
+T1 (LCK/LPL/LCS/LEC) runs a separate depth-observation paper trader.
+T1_SCANNING defaults to False — depth-at-entry has never been measured
+against a real order book, so T1 paper bets must not run until
+verify_book_snapshot.py confirms the book-reading math is trustworthy.
+
 Run standalone:  python polymarket/live_engine.py --status
+                  python polymarket/live_engine.py --t1-status
 Integrated:      called from bot.py scan loop
 """
 
@@ -27,8 +33,11 @@ from urllib3.util.retry import Retry
 _ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_ROOT))
 
-from model.predict import predict_match, check_cross_region
+from backtest.backtest import ELOTracker, load_matches
+from backtest.polymarket_backtest import estimate_fillable_at_open
+from model.predict import check_cross_region
 from polymarket.scanner import (
+    CLOB_API,
     GAMMA_API,
     MarketOpportunity,
     _clean_team_name,
@@ -47,6 +56,12 @@ STARTING_BANKROLL = 1000.0
 SPREAD_COST = 0.02
 SLIPPAGE_COST = 0.01
 
+# T1 depth-observation paper trading — off until the book-reading math is verified.
+T1_SCANNING = os.getenv("T1_SCANNING", "False") == "True"
+MIN_T1_GAMES = 10
+EDGE_THRESHOLD = MIN_EDGE
+_T1_LEAGUE_MARKERS = frozenset({"lck", "lpl", "lcs", "lec"})
+
 
 def _make_session() -> requests.Session:
     session = requests.Session()
@@ -57,6 +72,45 @@ def _make_session() -> requests.Session:
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+# ---------------------------------------------------------------------------
+# §0. Walk-forward ELO tracker — anchored to market-open time, never scan time
+# ---------------------------------------------------------------------------
+_tracker_cache: Dict[str, ELOTracker] = {}
+
+
+def _market_cutoff_date(market: Dict) -> str:
+    """Derive the walk-forward cutoff from the market's creation timestamp.
+    NEVER from wall-clock time. This is the anchor that makes live == backtest."""
+    ts = market["market_create_ts"]
+    return ts[:10]
+
+
+def _get_tracker(cutoff_date: str) -> ELOTracker:
+    """Build (or return cached) walk-forward ELO tracker advanced through all
+    matches strictly before cutoff_date. Cached by cutoff_date so repeated
+    markets on the same date don't rebuild."""
+    if cutoff_date in _tracker_cache:
+        return _tracker_cache[cutoff_date]
+
+    tracker = ELOTracker(
+        K=32, blend_k=5, scale=400, half_life_days=270,
+        soloq_baselines={}, regional_offsets={}, mov_weight=1.5,
+    )
+    for row in load_matches():
+        date = row[1]
+        if date >= cutoff_date:  # STRICT — excludes the match being predicted
+            break
+        stats = dict(
+            blue_kills=row[6], red_kills=row[7],
+            blue_deaths=row[8], red_deaths=row[9],
+            blue_gd15=row[10], red_gd15=row[11],
+        )
+        tracker.update(row[3], row[4], row[5], row[2], row[1], **stats)
+
+    _tracker_cache[cutoff_date] = tracker
+    return tracker
 
 
 # ---------------------------------------------------------------------------
@@ -176,29 +230,155 @@ def detect_new_markets(
     return new_markets
 
 
+def _is_t1_market(question: str, event_title: str = "") -> bool:
+    """T1 (LCK/LPL/LCS/LEC) market classifier, parallel to the T2 path's
+    implicit DB-membership filter."""
+    text = f"{question} {event_title}".lower()
+    return any(marker in text for marker in _T1_LEAGUE_MARKERS)
+
+
+def detect_new_t1_markets(
+    session: Optional[requests.Session] = None,
+) -> List[Dict]:
+    """Poll Gamma API for new T1 LoL moneyline markets not yet in t1_paper_bets."""
+    session = session or _make_session()
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+
+    seen = set(
+        r[0] for r in conn.execute("SELECT market_id FROM t1_paper_bets").fetchall()
+    )
+    db_teams = load_db_team_names()
+
+    new_markets = []
+
+    try:
+        r = session.get(
+            f"{GAMMA_API}/events",
+            params={
+                "active": "true",
+                "closed": "false",
+                "tag_slug": "league-of-legends",
+                "limit": "100",
+            },
+            timeout=15,
+        )
+        if r.status_code != 200:
+            conn.close()
+            return []
+        events = r.json()
+    except requests.RequestException:
+        conn.close()
+        return []
+
+    for event in events:
+        event_title = event.get("title", "")
+        for m in event.get("markets", []):
+            mid = m.get("id", "")
+            if mid in seen:
+                continue
+
+            q = m.get("question", "")
+            ql = q.lower()
+            if "(bo" not in ql or " vs " not in ql:
+                continue
+            if any(x in ql for x in ["game 1", "game 2", "game 3", "game 4", "game 5", "handicap"]):
+                continue
+            if not _is_t1_market(q, event_title):
+                continue
+
+            prices = m.get("outcomePrices", "[]")
+            outcomes = m.get("outcomes", "[]")
+            tokens = m.get("clobTokenIds", "[]")
+            if isinstance(prices, str):
+                try: prices = json.loads(prices)
+                except: continue
+            if isinstance(outcomes, str):
+                try: outcomes = json.loads(outcomes)
+                except: continue
+            if isinstance(tokens, str):
+                try: tokens = json.loads(tokens)
+                except: continue
+
+            if len(prices) < 2 or len(outcomes) < 2 or len(tokens) < 2:
+                continue
+
+            try:
+                pa, pb = float(prices[0]), float(prices[1])
+            except (ValueError, TypeError):
+                continue
+
+            if pa >= 0.99 or pb >= 0.99 or pa <= 0.01 or pb <= 0.01:
+                continue
+
+            teams = parse_teams_from_question(q)
+            if not teams:
+                continue
+
+            pm_a, pm_b = teams
+            db_a = match_team_name(pm_a, db_teams)
+            db_b = match_team_name(pm_b, db_teams)
+            if not db_a or not db_b:
+                continue
+
+            end_date = m.get("endDate", "")
+            market_create = m.get("startDate", m.get("createdAt", ""))
+            volume = float(m.get("volumeNum", 0) or m.get("volume", 0) or 0)
+
+            new_markets.append({
+                "market_id": mid,
+                "question": q,
+                "team_a": pm_a,
+                "team_b": pm_b,
+                "db_team_a": db_a,
+                "db_team_b": db_b,
+                "token_id_a": tokens[0],
+                "token_id_b": tokens[1],
+                "open_price_a": pa,
+                "open_price_b": pb,
+                "volume": volume,
+                "market_create_ts": market_create,
+                "match_start_ts": end_date,
+            })
+
+    conn.close()
+    return new_markets
+
+
 # ---------------------------------------------------------------------------
-# §2. Signal: model vs opening line
+# §2. Signal: model vs opening line — shared by T2 and T1, do not fork
 # ---------------------------------------------------------------------------
 def compute_signal(market: Dict) -> Dict:
-    """Compute model prediction and edge against opening price."""
-    result = predict_match(market["db_team_a"], market["db_team_b"])
-    model_a = result["p_a"]
+    """Point-in-time prediction + edge against opening price.
+
+    Anchored to the market's creation timestamp (market_create_ts), never
+    to wall-clock time. Uses the same walk-forward ELOTracker construction
+    as the backtest, so live predictions match backtest predictions exactly
+    for the same market.
+    """
+    cutoff_date = _market_cutoff_date(market)
+    tracker = _get_tracker(cutoff_date)
+
+    db_a = market["db_team_a"]
+    db_b = market["db_team_b"]
+
+    region_check = check_cross_region(db_a, db_b)
+    same_region = not region_check["cross_region"]
+    league_a = region_check.get("league_a") or ""
+
+    model_a = tracker.predict(db_a, db_b, league_a, cutoff_date)
     open_a = market["open_price_a"]
 
     edge_a = model_a - open_a
     edge_b = (1.0 - model_a) - (1.0 - open_a)
 
-    region_check = check_cross_region(market["db_team_a"], market["db_team_b"])
-    same_region = not region_check["cross_region"]
-
     if abs(edge_a) >= abs(edge_b):
         edge = edge_a
         bet_side = "team_a"
-        bet_team = market["db_team_a"]
+        bet_team = db_a
     else:
         edge = -edge_b
         bet_side = "team_b"
-        bet_team = market["db_team_b"]
+        bet_team = db_b
 
     return {
         "model_prob": model_a,
@@ -211,11 +391,14 @@ def compute_signal(market: Dict) -> Dict:
         "region_a": region_check.get("region_a"),
         "region_b": region_check.get("region_b"),
         "league_a": region_check.get("league_a"),
+        "games_a": tracker.games.get(db_a, 0),
+        "games_b": tracker.games.get(db_b, 0),
     }
 
 
 # ---------------------------------------------------------------------------
-# §3. Roster-swap pre-bet gate
+# §3. Roster-swap pre-bet gate (T2 only — see CLAUDE.md: roster gate is
+# counterproductive, model is MORE accurate on roster-changed games)
 # ---------------------------------------------------------------------------
 def check_roster_stability(team: str, market_id: str) -> Tuple[bool, str]:
     """
@@ -279,6 +462,18 @@ def compute_size(
     return kelly_size, fillable_size, final_size
 
 
+def _quarter_kelly(model_prob: float, entry_price: float, bankroll: float) -> float:
+    """Quarter-Kelly stake sized directly off model_prob and entry_price,
+    with no depth term — depth is applied as a separate cap by the caller."""
+    if entry_price <= 0 or entry_price >= 1:
+        return 0.0
+    b = (1.0 / entry_price) - 1.0
+    q = 1.0 - model_prob
+    kelly_raw = (model_prob * b - q) / b
+    kelly = max(0.0, min(kelly_raw, MAX_KELLY))
+    return round(bankroll * kelly, 2)
+
+
 # ---------------------------------------------------------------------------
 # §5. Paper execution
 # ---------------------------------------------------------------------------
@@ -286,6 +481,15 @@ def get_current_bankroll() -> float:
     conn = sqlite3.connect(DB_PATH, timeout=10)
     row = conn.execute(
         "SELECT COALESCE(SUM(realized_pnl), 0) FROM clv_log WHERE realized_pnl IS NOT NULL"
+    ).fetchone()
+    conn.close()
+    return STARTING_BANKROLL + float(row[0])
+
+
+def _get_t1_bankroll() -> float:
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    row = conn.execute(
+        "SELECT COALESCE(SUM(pnl), 0) FROM t1_paper_bets WHERE resolved = 1"
     ).fetchone()
     conn.close()
     return STARTING_BANKROLL + float(row[0])
@@ -350,6 +554,134 @@ def log_suppressed(market_id: str, reason: str, signal: Dict) -> None:
     conn.commit()
     conn.close()
     logger.info(f"SUPPRESSED: {market_id[:12]}… reason={reason}")
+
+
+def _log_t1_suppressed(market: Dict, reason: str, signal: Dict) -> None:
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute(
+        """INSERT INTO t1_paper_bets
+           (market_id, team_a, team_b, league, market_create_ts, bet_logged_ts,
+            model_prob, open_price, edge, bet_side, bet_team, resolved, suppressed_reason)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)""",
+        (
+            market["market_id"], market["db_team_a"], market["db_team_b"],
+            signal.get("league_a", "") or "",
+            market.get("market_create_ts", ""), _now_iso(),
+            signal.get("model_prob", 0), signal.get("open_implied_prob", 0),
+            signal.get("edge", 0), signal.get("bet_side", ""), signal.get("bet_team", ""),
+            reason,
+        ),
+    )
+    conn.commit()
+    conn.close()
+    logger.info(f"T1 SUPPRESSED: {market['market_id'][:12]}… reason={reason}")
+
+
+def fetch_book_snapshot(
+    token_id: str,
+    entry_price: float,
+    session: requests.Session,
+) -> Optional[Dict]:
+    """Read the REAL CLOB order book for token_id and compute USDC depth
+    within 1/3/5 PERCENT of entry_price on the ASK side (what you pay to buy).
+
+    Independent of estimate_fillable_at_open — never derives from it.
+    Band is relative (entry_price * (1 + pct)), not absolute (entry_price + pct).
+    Depth is sum(price * size) in USDC, treating size as shares, not sum(size).
+    """
+    try:
+        r = session.get(f"{CLOB_API}/book", params={"token_id": token_id}, timeout=10)
+        if r.status_code != 200:
+            return None
+        book = r.json()
+    except requests.RequestException:
+        return None
+
+    def parse(levels):
+        out = []
+        for lv in levels:
+            try:
+                out.append((float(lv["price"]), float(lv["size"])))
+            except (KeyError, ValueError, TypeError):
+                pass
+        return out
+
+    asks = sorted(parse(book.get("asks", [])), key=lambda x: x[0])
+    bids = sorted(parse(book.get("bids", [])), key=lambda x: x[0], reverse=True)
+    if not asks:
+        return None
+
+    best_ask = asks[0][0]
+    best_bid = bids[0][0] if bids else None
+    spread = (best_ask - best_bid) if best_bid is not None else None
+
+    def depth_within(pct):
+        ceiling = entry_price * (1.0 + pct)  # RELATIVE percent — NOT entry_price + pct
+        return sum(price * size for price, size in asks if price <= ceiling)  # USDC = price * size
+
+    return {
+        "book_snapshot_ts": _now_iso(),
+        "best_bid": best_bid,
+        "best_ask": best_ask,
+        "spread": spread,
+        "depth_within_1pct": depth_within(0.01),
+        "depth_within_3pct": depth_within(0.03),
+        "depth_within_5pct": depth_within(0.05),
+        "book_levels": json.dumps({"asks": asks[:10], "bids": bids[:10]}),
+    }
+
+
+def _log_t1_paper_bet(
+    market: Dict,
+    signal: Dict,
+    entry_price: float,
+    book: Dict,
+    estimated_fillable: float,
+    actual_fillable: float,
+    estimate_error: float,
+    bet_size: float,
+) -> Optional[int]:
+    hours_before = None
+    try:
+        create_dt = datetime.fromisoformat(market["market_create_ts"].replace("Z", "+00:00"))
+        match_dt = datetime.fromisoformat(market["match_start_ts"].replace("Z", "+00:00"))
+        hours_before = (match_dt - create_dt).total_seconds() / 3600.0
+    except (ValueError, TypeError, AttributeError):
+        pass
+
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute(
+        """INSERT INTO t1_paper_bets
+           (market_id, team_a, team_b, league, market_create_ts, bet_logged_ts,
+            hours_before_match, model_prob, open_price, edge, bet_side, bet_team,
+            book_snapshot_ts, best_bid, best_ask, spread,
+            depth_within_1pct, depth_within_3pct, depth_within_5pct, book_levels,
+            volume_at_snapshot, estimated_fillable, actual_fillable, estimate_error,
+            bet_size, entry_price, resolved)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)""",
+        (
+            market["market_id"], market["db_team_a"], market["db_team_b"],
+            signal.get("league_a", "") or "",
+            market.get("market_create_ts", ""), _now_iso(),
+            hours_before, signal["model_prob"], signal["open_implied_prob"], signal["edge"],
+            signal["bet_side"], signal["bet_team"],
+            book["book_snapshot_ts"], book["best_bid"], book["best_ask"], book["spread"],
+            book["depth_within_1pct"], book["depth_within_3pct"], book["depth_within_5pct"],
+            book["book_levels"], market.get("volume", 0),
+            estimated_fillable, actual_fillable, estimate_error,
+            bet_size, entry_price,
+        ),
+    )
+    bet_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    conn.commit()
+    conn.close()
+
+    logger.info(
+        f"T1 PAPER BET: ${bet_size:.2f} on {signal['bet_team']} @ {entry_price:.1%} "
+        f"(edge: {signal['edge']:.1%}, actual_fillable: ${actual_fillable:.2f}, "
+        f"estimated: ${estimated_fillable:.2f}, error: ${estimate_error:+.2f})"
+    )
+    return bet_id
 
 
 # ---------------------------------------------------------------------------
@@ -462,6 +794,102 @@ def update_clv(session: Optional[requests.Session] = None) -> int:
     return updated
 
 
+def update_t1_clv(session: Optional[requests.Session] = None) -> int:
+    """Check open T1 paper bets for resolution, compute CLV. Returns count updated.
+
+    Re-fetches the market from Gamma to get its endDate (match_start_ts) rather
+    than relying on a stored column, since t1_paper_bets doesn't carry it —
+    only hours_before_match (relative) was logged at bet time.
+    """
+    session = session or _make_session()
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+
+    open_bets = conn.execute(
+        """SELECT id, market_id, entry_price, bet_side, bet_team, bet_size
+           FROM t1_paper_bets
+           WHERE resolved = 0 AND suppressed_reason IS NULL""",
+    ).fetchall()
+
+    if not open_bets:
+        conn.close()
+        return 0
+
+    updated = 0
+    for bet_id, market_id, entry_price, bet_side, bet_team, size in open_bets:
+        try:
+            r = session.get(f"{GAMMA_API}/markets/{market_id}", timeout=10)
+            if r.status_code != 200:
+                continue
+            mkt = r.json()
+        except requests.RequestException:
+            continue
+
+        if not mkt.get("closed"):
+            continue
+
+        prices = mkt.get("outcomePrices", "[]")
+        outcomes = mkt.get("outcomes", "[]")
+        if isinstance(prices, str):
+            try: prices = json.loads(prices)
+            except: continue
+        if isinstance(outcomes, str):
+            try: outcomes = json.loads(outcomes)
+            except: continue
+
+        if len(prices) < 2:
+            continue
+
+        try:
+            pa = float(prices[0])
+        except (ValueError, TypeError):
+            continue
+
+        if pa >= 0.99:
+            winner = outcomes[0] if outcomes else "team_a"
+        elif float(prices[1]) >= 0.99:
+            winner = outcomes[1] if len(outcomes) > 1 else "team_b"
+        else:
+            continue
+
+        won = (bet_team == winner) or (bet_side == "team_a" and pa >= 0.99) or (bet_side == "team_b" and float(prices[1]) >= 0.99)
+
+        if won:
+            pnl = round(size * (1.0 / entry_price - 1.0), 2)
+        else:
+            pnl = round(-size, 2)
+
+        match_start_ts = mkt.get("endDate", "")
+        if match_start_ts:
+            prematch_row = conn.execute(
+                "SELECT price_a FROM polymarket_prices WHERE market_id = ? AND timestamp < ? ORDER BY timestamp DESC LIMIT 1",
+                (market_id, match_start_ts),
+            ).fetchone()
+        else:
+            prematch_row = None
+        if not prematch_row:
+            prematch_row = conn.execute(
+                "SELECT price_a FROM polymarket_prices WHERE market_id = ? ORDER BY timestamp ASC LIMIT 1",
+                (market_id,),
+            ).fetchone()
+        prematch_close = prematch_row[0] if prematch_row else entry_price
+
+        if bet_side == "team_b":
+            prematch_close = 1.0 - prematch_close
+
+        clv = prematch_close - entry_price
+
+        conn.execute(
+            "UPDATE t1_paper_bets SET resolved = 1, won = ?, clv = ?, pnl = ? WHERE id = ?",
+            (1 if won else 0, round(clv, 4), pnl, bet_id),
+        )
+        updated += 1
+        logger.info(f"T1 CLV: {bet_team} {'WON' if won else 'LOST'} PnL=${pnl:+.2f} CLV={clv:+.3f}")
+
+    conn.commit()
+    conn.close()
+    return updated
+
+
 # ---------------------------------------------------------------------------
 # Main pipeline: process one scan cycle
 # ---------------------------------------------------------------------------
@@ -557,6 +985,84 @@ def run_cycle(session: Optional[requests.Session] = None) -> Dict:
     }
 
 
+def run_t1_cycle(session: Optional[requests.Session] = None) -> Dict:
+    """T1 depth-observation paper trading cycle. No-op unless T1_SCANNING=True.
+
+    Sizing and the actual_fillable cap come from a real CLOB book read
+    (fetch_book_snapshot), never from estimate_fillable_at_open. The estimate
+    is computed separately, purely for comparison, and logged as estimate_error.
+    """
+    if not T1_SCANNING:
+        logger.info("T1_SCANNING is OFF — skipping T1 cycle")
+        return {"scanning": False}
+
+    session = session or _make_session()
+    markets = detect_new_t1_markets(session)
+
+    bets_placed = 0
+    suppressed = 0
+
+    for market in markets:
+        signal = compute_signal(market)
+
+        if not signal["same_region"]:
+            _log_t1_suppressed(market, "cross_region", signal)
+            suppressed += 1
+            continue
+        if signal["edge"] < EDGE_THRESHOLD:
+            _log_t1_suppressed(market, f"edge_too_small_{signal['edge']:.2f}", signal)
+            suppressed += 1
+            continue
+        if signal["games_a"] < MIN_T1_GAMES or signal["games_b"] < MIN_T1_GAMES:
+            _log_t1_suppressed(market, "insufficient_games", signal)
+            suppressed += 1
+            continue
+
+        bet_side = signal["bet_side"]
+        token_id = market["token_id_a"] if bet_side == "team_a" else market["token_id_b"]
+        open_price = market["open_price_a"] if bet_side == "team_a" else market["open_price_b"]
+        entry_price = min(open_price + SPREAD_COST + SLIPPAGE_COST, 0.99)
+
+        # INDEPENDENT depth read — the real book
+        book = fetch_book_snapshot(token_id, entry_price, session)
+        if book is None:
+            logger.warning(f"No book for {market['question']} — logging suppressed")
+            _log_t1_suppressed(market, "no_book", signal)
+            suppressed += 1
+            continue
+        actual_fillable = book["depth_within_3pct"]
+
+        # Estimator computed SEPARATELY, from volume only — for comparison, never sizing
+        estimated_fillable = estimate_fillable_at_open(market.get("volume", 0))
+        estimate_error = estimated_fillable - actual_fillable
+
+        # Size off the REAL book, never the estimate
+        bankroll = _get_t1_bankroll()
+        kelly_size = _quarter_kelly(signal["model_prob"], entry_price, bankroll)
+        bet_size = min(kelly_size, bankroll * MAX_POSITION_PCT, actual_fillable)
+        if bet_size < 1.0:
+            _log_t1_suppressed(market, "no_liquidity", signal)
+            suppressed += 1
+            continue
+
+        bet_id = _log_t1_paper_bet(
+            market, signal, entry_price, book,
+            estimated_fillable, actual_fillable, estimate_error, bet_size,
+        )
+        if bet_id:
+            bets_placed += 1
+
+    resolved = update_t1_clv(session)
+
+    return {
+        "scanning": True,
+        "new_markets": len(markets),
+        "bets_placed": bets_placed,
+        "suppressed": suppressed,
+        "resolved": resolved,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Status / reporting
 # ---------------------------------------------------------------------------
@@ -604,12 +1110,46 @@ def print_status() -> None:
     print()
 
 
+def print_t1_status() -> None:
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+
+    total = conn.execute("SELECT COUNT(*) FROM t1_paper_bets WHERE suppressed_reason IS NULL").fetchone()[0]
+    resolved = conn.execute("SELECT COUNT(*) FROM t1_paper_bets WHERE resolved = 1").fetchone()[0]
+    suppressed = conn.execute("SELECT COUNT(*) FROM t1_paper_bets WHERE suppressed_reason IS NOT NULL").fetchone()[0]
+    errors = conn.execute(
+        "SELECT estimate_error FROM t1_paper_bets WHERE estimate_error IS NOT NULL"
+    ).fetchall()
+
+    conn.close()
+
+    print(f"\n{'='*55}")
+    print(f"  T1 DEPTH-OBSERVATION STATUS (T1_SCANNING={T1_SCANNING})")
+    print(f"{'='*55}")
+    print(f"  Bets logged:       {total} ({resolved} resolved)")
+    print(f"  Suppressed:        {suppressed}")
+
+    if errors:
+        vals = [e[0] for e in errors]
+        mean_err = sum(vals) / len(vals)
+        print(f"\n  ESTIMATOR ACCURACY ({len(vals)} book reads)")
+        print(f"  {'-'*40}")
+        print(f"  Mean estimate_error (est - actual): ${mean_err:+.2f}")
+        print(f"  Progress to verdict: {min(len(vals), 20)}/20")
+        print(f"  (Preliminary directional read on estimator accuracy — not validation.)")
+    else:
+        print(f"\n  No book reads logged yet.")
+    print()
+
+
 def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description="Live deployment engine")
     parser.add_argument("--status", action="store_true", help="Show current status")
     parser.add_argument("--cycle", action="store_true", help="Run one detection cycle")
     parser.add_argument("--clv", action="store_true", help="Update CLV for resolved bets")
+    parser.add_argument("--t1-status", action="store_true", help="Show T1 depth-observation status")
+    parser.add_argument("--t1-cycle", action="store_true", help="Run one T1 detection cycle")
+    parser.add_argument("--t1-clv", action="store_true", help="Update CLV for resolved T1 bets")
     args = parser.parse_args()
 
     if args.status:
@@ -617,9 +1157,20 @@ def main() -> None:
     elif args.cycle:
         result = run_cycle()
         print(f"Cycle: {result['new_markets']} new, {result['bets_placed']} bets, {result['suppressed']} suppressed, {result['resolved']} resolved")
+        if T1_SCANNING:
+            t1_result = run_t1_cycle()
+            print(f"T1 cycle: {t1_result.get('new_markets', 0)} new, {t1_result.get('bets_placed', 0)} bets, {t1_result.get('suppressed', 0)} suppressed, {t1_result.get('resolved', 0)} resolved")
     elif args.clv:
         n = update_clv()
         print(f"Updated CLV for {n} bets")
+    elif args.t1_status:
+        print_t1_status()
+    elif args.t1_cycle:
+        result = run_t1_cycle()
+        print(f"T1 cycle: {result}")
+    elif args.t1_clv:
+        n = update_t1_clv()
+        print(f"Updated CLV for {n} T1 bets")
     else:
         parser.print_help()
 
