@@ -20,13 +20,22 @@ Mean CLV:     +0.132 (line drifts toward our position 71% of the time)
 Walk-forward: model uses only matches before each market's date. No lookahead.
 Liquidity model: volume-dependent costs (3-8%), opening fillable capped at 1-3% of total volume.
 
+**T1 forward-test data (154 qualifying trades, Jan–May 2026, resolved):**
+```
+Leagues:   LPL (78), LCK (58), LCS (18)
+Hit rate:  63.0%
+Mean edge: +23.6%
+Mean CLV:  +0.169 (favorable — line moves toward our position)
+Status:    Observation only — OE data at 2026-06-02, not tradeable yet
+```
+
 ---
 
 ## Project Status
 
 | Component | Status | Notes |
 |---|---|---|
-| OE scraper | ✅ Done | 14,082 T1+T2 matches (2024–2026) in `db/lol_model.db` — see note below |
+| OE scraper | ✅ Done | 15,742 T1+T2 matches (2024–2026) in `db/lol_model.db` — see note below |
 | TTP scraper | ✅ Done | 2,291 players with soloq ratings |
 | Roster scraper | ✅ Done | 598 roster entries across 97 teams |
 | Riot API scraper | ✅ Done | Backfills soloq for unmatched roster players |
@@ -34,12 +43,13 @@ Liquidity model: volume-dependent costs (3-8%), opening fillable capped at 1-3% 
 | Platt calibration | ✅ Done | Wired into all predictions |
 | Blue side offset | ✅ Done | +22.3 ELO for blue side (53.2% WR) |
 | Cross-region detector | ✅ Done | Flags + adjusts international matchups |
-| Bo3/Bo5/Bo7 conversion | ✅ Done | Negative binomial series probability |
-| Polymarket scanner | ✅ Done | tag_slug discovery, finds 43+ LoL events |
+| Bo3/Bo5/Bo7 conversion | ✅ Done | Negative binomial series probability (IID tested — holds) |
+| Polymarket scanner | ✅ Done | tag_slug discovery, delegates matching to team_matcher |
 | Price tracker | ✅ Done | 5-min snapshots, resolution tracking |
-| Live engine | ✅ Done | Opening-line detector, signal, gates, paper exec |
-| Discord bot | ✅ Done | Decision cards, health dashboard, alerts |
-| Paper trading | ✅ Running | Waiting for same-region T2 markets |
+| Live engine | ✅ Done | Opening-line detector, unknown-team gate, T1 detection w/ MSI/Worlds |
+| Discord bot | ✅ Rewritten | T1 observation tool — pull-based watchlist, depth tracking, OE honesty |
+| T1 forward-testing | 🔭 Observing | Bot auto-detects T1 markets, logs depth, tracks prices — no bets yet |
+| Paper trading (T2) | ✅ Running | Waiting for same-region T2 markets |
 | P&L backtester | ✅ Done | Realistic costs, Kelly sizing, trade log CSV |
 | V3 features (107 cols) | ❌ Abandoned | 0% accuracy gain over V1 — archived |
 | Draft features | ❌ Abandoned | 0% accuracy gain — archived |
@@ -49,7 +59,7 @@ Liquidity model: volume-dependent costs (3-8%), opening fillable capped at 1-3% 
 - `db/lol_model.db`'s `matches` table — fed by `scrapers/oe_scraper.py`, whose `YEARS = [2024, 2025, 2026]` caps it to 2024–2026 only. This is what `pro_elo.py` and `live_engine.py` actually read at runtime.
 - `data/newmetrics/games.csv` — a frozen, gitignored research dataset, 20,587 T2 games spanning 2021–2026. Used for the V2 model's offline analysis (`t1-real-model-deep-dive` branch). Never loaded into `lol_model.db`.
 
-An earlier doc edit copied the 20,587/2021–2026 figure onto the *SQLite* line, implying the live DB had that history. It never did — that line was wrong, not the DB. Don't re-derive this from scratch next time you notice the numbers don't match; this is just two files with different scopes.
+An earlier doc edit copied the 20,587/2021–2026 figure onto the *SQLite* line — that was wrong, not the DB. Don't re-derive this from scratch next time you notice the numbers don't match; this is just two files with different scopes.
 
 **`db/lol_model.db` is gitignored, has no backup, and a `git reset --hard` can erase it with no way back except re-deriving it.** If that happens, restore it with:
 ```bash
@@ -66,7 +76,7 @@ This is a ~2-minute recovery, not a re-investigation — `--tier all` is the par
 - Same-region T2 LoL only
 - Model disagrees with Polymarket opening price by >10%
 - Bet at market open, before sharp money arrives
-- Suppress: cross-region, edge 5-10% (costs eat it), roster changes post-creation
+- Suppress: cross-region, edge 5-10% (costs eat it), roster changes post-creation, unknown teams (0 games in DB)
 
 **Sizing:**
 - Quarter-Kelly (6.25% max) on lower CI bound of edge
@@ -77,17 +87,25 @@ This is a ~2-minute recovery, not a re-investigation — `--tier all` is the par
 **Deployment:**
 - Paper-trading now (LIVE_TRADING=False in live_engine.py)
 - Promote to live after 30+ paper bets show positive CLV (CI clears zero)
+- T1 scanning: observation only (T1_SCANNING=False) — promote after OE data is fresh and 30+ T1 forward-test paper bets
 
 ---
 
-## Key Findings (June 18, 2026)
+## Key Findings
 
+**June 18, 2026:**
 1. **Polymarket closing prices are 96% accurate** — but this is in-game contamination. Markets stay open during matches.
 2. **Opening prices are only 61% accurate** — soft lines, thin liquidity, no sharp money yet.
 3. **The model beats the opening line** — 65.3% vs 61% accuracy (walk-forward, no lookahead). Previously reported as 67% but that used final ELOs (lookahead bias).
 4. **V3 model (107 features) gave 0% improvement** — dragon control, baron rates, vision, draft quality are all redundant with ELO. The accuracy ceiling from pre-match public data is ~64%.
 5. **The edge is in WHEN you bet, not how good the model is.** A 63-65% model beats a 61% opening line.
 6. **Live in-game betting is not viable** — mid-game T2 liquidity ($352) is worse than at open ($979).
+
+**July 2, 2026:**
+7. **T1 forward-test looks good** — 154 qualifying trades (Jan–May 2026), 63.0% hit rate, mean CLV +0.169. Signal is real.
+8. **IID assumption holds** — LPL series data (763 series, 2024–2026): momentum delta +0.049 (z=1.60, p>0.05, not significant). Series probability shift from non-IID model is <1% for all 154 T1 trades. No model change warranted.
+9. **Book depth math confirmed** — CLOB depth at 3% band computed correctly. Verified against Polymarket UI (ratio ≈ 1.000 on a live G2 vs Top Esports book).
+10. **OE stale threshold of 14 days is overcautious** — established T1 teams (200+ career games) are barely affected by 30 days of missing early-summer results. The signal goes stale when a full split is missing (~60 days), not 14 days.
 
 ---
 
@@ -104,9 +122,9 @@ lol-prediction-model/
 │   ├── calibration.py                ← Platt scaling for probability calibration
 │   └── calibration_params.json       ← fitted calibration parameters
 ├── polymarket/
-│   ├── bot.py                        ← Discord bot (scan loop + slash commands)
+│   ├── bot.py                        ← Discord bot — T1 observation tool + T2 paper trading
 │   ├── live_engine.py                ← opening-line detector + paper execution + CLV
-│   ├── scanner.py                    ← Polymarket market discovery (tag_slug)
+│   ├── scanner.py                    ← Polymarket market discovery (delegates matching to team_matcher)
 │   ├── price_tracker.py              ← forward price snapshots + resolution tracking
 │   ├── edge.py                       ← edge calculator (quarter-Kelly)
 │   ├── paper_trader.py               ← legacy paper trading (bot uses for /portfolio)
@@ -117,23 +135,24 @@ lol-prediction-model/
 │   ├── market_comparison.py          ← model vs bookmaker vs Polymarket
 │   └── manual_odds_entry.py          ← manual Pinnacle odds entry
 ├── scrapers/
-│   ├── oe_scraper.py                 ← Oracle's Elixir match data (Google Drive)
+│   ├── oe_scraper.py                 ← Oracle's Elixir match data (Google Drive); T2 now includes PRM/HLL/ROL
 │   ├── ttp_scraper.py                ← TrackingThePros soloq data
 │   ├── roster_scraper.py             ← Leaguepedia Cargo API rosters
 │   ├── riot_scraper.py               ← Riot API soloq backfill
-│   └── team_matcher.py               ← shared fuzzy matching + alias DB
+│   └── team_matcher.py               ← shared fuzzy matching + alias DB (core-match guard added)
 ├── archive/                          ← abandoned code (preserved for history)
 │   ├── features_v3.py                ← 107-feature extraction (0% gain)
 │   ├── draft_features.py             ← champion/draft features (0% gain)
 │   ├── v3_model_trainer.py           ← GBM trainer (abandoned)
 │   └── odds_scraper.py               ← the-odds-api (no esports coverage)
 ├── db/
-│   ├── schema.sql                    ← SQLite schema (16 tables)
+│   ├── schema.sql                    ← SQLite schema (18 tables)
 │   ├── init_db.py                    ← creates/resets database
 │   └── lol_model.db                  ← SQLite database (not in git)
 ├── data/
 │   ├── raw/                          ← scraped data (not in git)
 │   ├── backtest_trades.csv           ← 147-trade walk-forward backtest log
+│   ├── t1_model_trades_open.csv      ← 250-row T1 forward-test dataset (154 qualifying, Jan–May 2026)
 │   └── upcoming_matches.csv          ← match tracking spreadsheet
 ├── docs/
 │   ├── session_2026_06_18.md         ← full session report
@@ -163,61 +182,92 @@ matches ─────────┘           blend.py (alpha = games / (game
                               + Platt calibration (a=0.910, b=0.045)
                               + Blue side offset (+22.3 ELO)
                               + Cross-region adjustment (80% of soloq offset)
-                              + Bo series conversion (negative binomial)
+                              + Bo series conversion (negative binomial, IID — tested and holds)
 ```
 
 **Parameters (frozen, grid-search optimized):**
 - K = 64, blend_k = 5, scale = 400, half_life = 270 days
 - Calibration: a=0.910, b=0.045
-- Blue side: +22.3 ELO (from 53.2% blue WR across 10,372 matches)
+- Blue side: +22.3 ELO (from 53.2% blue WR across 10,372 T2 matches)
+- MoV multiplier: kills_factor × gd15_factor, hard cap at 1.5×
+
+**Regional league mappings (pro_elo.py LEAGUE_TO_REGION):**
+- EU: LEC, LFL, ESLOL, LVP SL, PRM, PRMP, HLL, ROL
+- KR: LCK, LCK Challengers
+- CN: LPL, LDL
+- NA: LCS, NACL
+- BR: CBLOL, CBLOL Academy
+- TR: TCL
+- OCE: LCO
+- LATAM: LLA → LTA N, LTA S
 
 ---
 
 ## Polymarket Integration
 
-**Scanner** discovers LoL markets via `tag_slug=league-of-legends` on the Gamma API. Parses team names from "LoL: X vs Y (BoN)" format. Filters resolved (100/0), per-game, and handicap markets.
+**Scanner** discovers LoL markets via `tag_slug=league-of-legends` on the Gamma API. Parses team names from "LoL: X vs Y (BoN)" format. Filters resolved (100/0), per-game, and handicap markets. Team name matching delegates entirely to `team_matcher.py` (alias DB + 5-tier fuzzy).
 
 **Price history** recovered from CLOB API: `GET /prices-history?market={token}&startTs=1&fidelity=10` returns 10-minute resolution for resolved markets.
 
 **Live engine** runs every 5 minutes:
 1. Detects new T2 moneyline markets
 2. Computes model prob vs opening price
-3. Gates: same-region, >10% edge, roster stability, liquidity
+3. Gates: unknown team (0 DB games → suppress), same-region, >10% edge, roster stability, liquidity
 4. Sizes via quarter-Kelly (6.25%), 2% bankroll cap, depth-gated
 5. Logs paper bet with entry price, edge, CLV tracking
 6. On resolution: computes CLV vs pre-match close, realized P&L
+
+**T1 detection** (always runs, regardless of T1_SCANNING):
+- `_T1_LEAGUE_MARKERS` matches: lck, lpl, lcs, lec, msi, mid-season invitational, worlds, world championship
+- New T1 markets auto-added to `t1_watchlist`, depth logged to `t1_paper_bets` (bet_size=0)
+- T1_SCANNING=False → observation only, no sizing
 
 ---
 
 ## Discord Bot
 
+The bot was rewritten July 2026 from an alert-spammer into a **T1 forward-testing and observation tool**. Two output categories are explicitly separated:
+
+- **OBSERVATIONAL** (always trustworthy): opening prices, depth, lead time, market URL, price history
+- **SIGNAL** (may be stale): model prob, edge, bet direction — labeled "⚠️ SIGNAL STALE — OE data YYYY-MM-DD, not tradeable" when OE is stale
+
+**Scan loop behavior (every 5 minutes):**
+- T2 `run_cycle()` runs silently; posts only when a paper bet is placed
+- `detect_new_t1_markets()` always runs — posts ONE embed per new T1 market found
+- `_record_watchlist_prices()` records price for every watched market
+
 **Commands:**
 | Command | What it does |
 |---|---|
-| `/health` | **Edge health dashboard** — rolling CLV, promotion gate progress |
+| `/status` | Bot uptime, scan count, OE data date, T1_SCANNING flag |
+| `/health` | Edge health dashboard — rolling CLV, promotion gate progress |
 | `/predict <a> <b>` | Model prediction (with best_of, regions, calibration) |
 | `/scan` | Force immediate Polymarket scan |
 | `/portfolio` | Paper trading bankroll, P&L, win rate |
 | `/trades` | Open positions + recent settled bets |
 | `/settle` | Force check for resolved markets |
 | `/leaderboard` | Top 20 teams by blended rating |
-| `/status` | Bot uptime, scan count |
 | `/reset` | Reset paper trading portfolio |
+| `/t1watch <query>` | Add a market to the T1 watchlist by search |
+| `/t1watchlist` | Show all watched T1 markets with current prices |
+| `/t1unwatch <market_id>` | Remove a market from the watchlist |
+| `/t1dashboard` | T1 forward-test summary: hit rate, CLV, gate progress |
+| `/t1depth <market_id>` | Fetch live CLOB depth for a watched T1 market |
 
-**Decision cards:** Every market evaluation posts a card showing the gate trace (✅/❌ for each gate) and whether a bet was placed or suppressed.
-
-**Alerts:** CLV crossing zero, losing streak > 3, roster gate fires, data feed stale.
+**Alerts fire ONLY on:**
+- Genuinely new T1 market detected (one embed, then silence)
+- Watched T1 market resolves
 
 ---
 
-## Database Schema (SQLite — 16 tables)
+## Database Schema (SQLite — 18 tables)
 
 | Table | Rows | Purpose |
 |---|---|---|
 | `players` | 2,291 | Pro player identities |
 | `accounts` | 2,300 | Daily soloq snapshots |
-| `teams` | 440 | Team ELO ratings |
-| `matches` | 10,372 | Historical T2 match results |
+| `teams` | 440+ | Team ELO ratings |
+| `matches` | 15,742 | Historical T1+T2 match results (2024–2026) |
 | `rosters` | 598 | Current team rosters |
 | `paper_trades` | 0+ | Legacy paper bets |
 | `paper_portfolio` | 0+ | Legacy daily snapshots |
@@ -229,6 +279,10 @@ matches ─────────┘           blend.py (alpha = games / (game
 | `roster_checks` | 0+ | Roster stability audit |
 | `live_bets` | 0+ | Paper/live bet log |
 | `clv_log` | 0+ | CLV tracking per bet |
+| `t1_paper_bets` | 0+ | T1 depth observations + (future) paper bets; bet_size=0 when T1_SCANNING=False |
+| `t1_watchlist` | 0+ | Bot-managed pull-based price tracking for T1 markets |
+
+**`t1_paper_bets` key columns:** `book_snapshot_ts`, `depth_within_1/3/5pct`, `estimated_fillable`, `actual_fillable`, `estimate_error` — estimate and reality logged side-by-side, neither feeds the other. Bet is sized from `actual_fillable` only.
 
 ---
 
@@ -268,7 +322,7 @@ Generate for any bankroll: `python backtest/polymarket_backtest.py --bankroll 10
 
 ```bash
 # Scrapers (run periodically)
-python scrapers/oe_scraper.py         # match data (weekly)
+python scrapers/oe_scraper.py         # match data (weekly) — use --tier all to include T1
 python scrapers/ttp_scraper.py        # soloq snapshots (daily)
 python scrapers/roster_scraper.py     # rosters (match days)
 
@@ -293,6 +347,11 @@ python polymarket/live_engine.py --cycle
 
 # Discord bot (runs continuously)
 python polymarket/bot.py
+
+# Team name aliases
+python scrapers/team_matcher.py --list-aliases
+python scrapers/team_matcher.py --add-alias "KCorp" --source polymarket --db-name "Karmine Corp"
+python scrapers/team_matcher.py --test "G2 Esports" --source polymarket
 ```
 
 ---
@@ -305,6 +364,7 @@ python polymarket/bot.py
 - Don't commit `data/`, `db/lol_model.db`, `.env`, or `*.pkl`
 - **NEVER put secrets in `.env.example`**
 - **Do not re-tune the model or thresholds** — the rule is frozen and validated
+- Team name matching: always go through `team_matcher.py`, never inline fuzzy match
 
 ---
 
@@ -319,6 +379,12 @@ python polymarket/bot.py
 | V3 features (107) | Abandoned | 0% accuracy gain — dragon/baron/vision/draft all redundant with ELO |
 | Live in-game | No-go | Mid-game liquidity ($352) worse than open ($979) |
 | Deployment | Paper first | 30+ bets with positive CLV before real capital |
+| IID assumption | Keep as-is | Momentum delta +0.049 (z=1.60, p>0.05); <1% series prob shift — not worth complexity |
+| Bot | Observation-first | OE data lags ~30 days after split ends; bot is honest about staleness, no alert spam |
+| T1_SCANNING | False (observation) | T1 go-live requires: OE fresh + 30+ paper bets with positive CLV |
+| OE stale threshold | ~60 days (not 14) | Established T1 teams barely affected by 30 days of missing early-summer games |
+| Unknown-team gate | Suppress bet | Team with 0 DB games defaults to 1500 ELO — model is blind, no edge |
+| team_matcher | Canonical matching | core-match guard blocks generic-suffix inflation (e.g. "Top Esports" vs "WAP Esports") |
 
 ---
 
@@ -330,3 +396,5 @@ python polymarket/bot.py
 4. **Galions underestimation** — 5 of top 10 confident losses. ELO lags for teams on hot streaks.
 5. **ELO-staleness suppressor not implemented** — flagged as recommended guardrail.
 6. **No historical bookmaker odds source** — the-odds-api doesn't cover esports; OddsPortal blocks bots.
+7. **OE data at 2026-06-02** — LCK Summer just started. Re-run `oe_scraper.py --tier all` weekly until DB is current. T1 signals are labeled stale until then.
+8. **T1 paper bets table needs init** — `db/init_db.py` must be run (or `schema.sql` applied) on any new DB to create `t1_paper_bets` and `t1_watchlist`.

@@ -25,6 +25,8 @@ from urllib3.util.retry import Retry
 _ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_ROOT))
 
+from scrapers.team_matcher import match_team_name as _tm_match_team_name
+
 DB_PATH = _ROOT / "db" / "lol_model.db"
 
 # ---------------------------------------------------------------------------
@@ -129,14 +131,9 @@ def load_db_team_names() -> List[str]:
 def match_team_name(pm_name: str, db_teams: List[str]) -> Optional[str]:
     """
     Match a Polymarket team name to a DB team name.
-    Checks aliases first, then fuzzy match.
+    Delegates to team_matcher which checks the alias DB then fuzzy tiers.
     """
-    cleaned = pm_name.strip()
-    if cleaned in TEAM_ALIASES:
-        return TEAM_ALIASES[cleaned]
-
-    matches = get_close_matches(cleaned, db_teams, n=1, cutoff=TEAM_MATCH_CUTOFF)
-    return matches[0] if matches else None
+    return _tm_match_team_name(pm_name, db_teams, source="polymarket")
 
 
 # ---------------------------------------------------------------------------

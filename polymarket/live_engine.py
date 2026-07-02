@@ -60,7 +60,11 @@ SLIPPAGE_COST = 0.01
 T1_SCANNING = os.getenv("T1_SCANNING", "False") == "True"
 MIN_T1_GAMES = 10
 EDGE_THRESHOLD = MIN_EDGE
-_T1_LEAGUE_MARKERS = frozenset({"lck", "lpl", "lcs", "lec"})
+_T1_LEAGUE_MARKERS = frozenset({
+    "lck", "lpl", "lcs", "lec",            # domestic T1 leagues
+    "mid-season invitational", "msi",       # international T1 events
+    "world championship", "worlds",
+})
 
 
 def _make_session() -> requests.Session:
@@ -338,6 +342,7 @@ def detect_new_t1_markets(
                 "volume": volume,
                 "market_create_ts": market_create,
                 "match_start_ts": end_date,
+                "slug": event.get("slug", ""),
             })
 
     conn.close()
@@ -933,6 +938,13 @@ def run_cycle(session: Optional[requests.Session] = None) -> Dict:
             ),
         )
         conn.commit()
+
+        # Gate: unknown teams (defaults to 1500 — model is blind, suppress)
+        if signal["games_a"] == 0 or signal["games_b"] == 0:
+            unknown = market["db_team_a"] if signal["games_a"] == 0 else market["db_team_b"]
+            log_suppressed(market["market_id"], f"unknown_team_{unknown}", signal)
+            suppressed += 1
+            continue
 
         # Gate: same-region only
         if not signal["same_region"]:

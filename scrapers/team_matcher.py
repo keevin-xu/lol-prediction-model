@@ -92,17 +92,30 @@ _SUFFIX_EXPANSIONS = [" Challengers", " Academy", " Esports", " Gaming", " Youth
 _ZERO_WIDTH_CHARS = "​⁠﻿⠀"
 
 
-def _core_match_ok(cleaned: str, candidate: str, cutoff: float) -> bool:
+_CORE_CUTOFF = 0.82  # intentionally stricter than DEFAULT_CUTOFF (0.72)
+# Why higher than the main cutoff: the core is already suffix-stripped, so a
+# high raw-string ratio can still be noise on short cores ("tp" vs "top" = 0.80
+# on 2-char strings — statistically meaningless but numerically above 0.72).
+# Using 0.82 blocks those short-core false positives while leaving genuine
+# one-character transpositions on longer cores intact (e.g. "dplus koa" vs
+# "dplus kia" = 0.89, "kiwoom drk" vs "kiwoom drx" = 0.90).
+
+
+def _core_match_ok(cleaned: str, candidate: str, cutoff: float = DEFAULT_CUTOFF) -> bool:
     """
-    Guard against generic-suffix inflation: "Top Esports" vs "WAP Esports"
-    scores 0.82 on the raw strings purely because both share "Esports",
-    even though the actual team names "Top" vs "WAP" have nothing in
-    common (ratio 0.33). Requires the suffix/diacritic-stripped core names
-    to independently clear the cutoff before a fuzzy hit is accepted.
+    Guard against generic-suffix inflation and short-core string noise.
+
+    Two failure modes this blocks:
+      1. Suffix inflation — "Top Esports" vs "WAP Esports" scores 0.82 on raw
+         strings because both share "Esports", even though cores "top" vs "wap"
+         have nothing in common (0.33).
+      2. Short-core noise — "Tp Esports" vs "Top Esports" strips to "tp" vs
+         "top" (0.80). Two characters vs three: mathematically above 0.72 but
+         semantically meaningless. The stricter _CORE_CUTOFF (0.82) blocks it.
     """
     core_ext = normalize_team_name(cleaned)
     core_cand = normalize_team_name(candidate)
-    return SequenceMatcher(None, core_ext, core_cand).ratio() >= cutoff
+    return SequenceMatcher(None, core_ext, core_cand).ratio() >= _CORE_CUTOFF
 
 
 def match_team_name(
@@ -141,11 +154,14 @@ def match_team_name(
     if hits and _core_match_ok(cleaned, lower_map[hits[0]], cutoff):
         return lower_map[hits[0]]
 
-    # Tier 4: normalized fuzzy match (diacritics stripped, known suffixes stripped)
+    # Tier 4: normalized fuzzy match (diacritics stripped, known suffixes stripped).
+    # Gated by _core_match_ok — since normalization already stripped suffixes,
+    # the core check is between the suffix-free strings themselves, which is where
+    # short-core noise ("tp" vs "top") would otherwise slip through ungated.
     norm_ext = normalize_team_name(cleaned)
     norm_map = {normalize_team_name(t): t for t in db_teams}
     hits = get_close_matches(norm_ext, list(norm_map.keys()), n=1, cutoff=cutoff)
-    if hits:
+    if hits and _core_match_ok(cleaned, norm_map[hits[0]]):
         return norm_map[hits[0]]
 
     # Tier 5: suffix-expansion fuzzy match — try appending a known suffix to

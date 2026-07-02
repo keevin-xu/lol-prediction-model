@@ -288,3 +288,22 @@ CREATE TABLE IF NOT EXISTS t1_paper_bets (
 
 CREATE INDEX IF NOT EXISTS idx_t1_paper_bets_market ON t1_paper_bets(market_id);
 CREATE INDEX IF NOT EXISTS idx_t1_paper_bets_resolved ON t1_paper_bets(resolved);
+
+-- ===== T1 Watchlist (bot-managed, pull-based price tracking) =====
+CREATE TABLE IF NOT EXISTS t1_watchlist (
+    id INTEGER PRIMARY KEY,
+    market_id TEXT NOT NULL UNIQUE,
+    question TEXT,
+    team_a TEXT,
+    team_b TEXT,
+    db_team_a TEXT,
+    db_team_b TEXT,
+    token_id_a TEXT,
+    token_id_b TEXT,
+    open_price_a REAL,
+    open_price_b REAL,
+    slug TEXT,
+    added_ts TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_t1_watchlist_market ON t1_watchlist(market_id);

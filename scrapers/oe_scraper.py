@@ -75,6 +75,10 @@ T2_LEAGUES = {
     "ESLOL",         # Italy
     "LVP SL",        # Spain (was "PG.Nationals" before 2024 rebrand)
     "TCL",           # Turkey
+    "PRM",           # Germany/Austria/Switzerland (Prime League)
+    "PRMP",          # Prime League Playoffs
+    "HLL",           # Greece (Hellenic League)
+    "ROL",           # Belgium/Netherlands (Road of Legends)
     # Oceania / Pacific
     "LCO",
     # Latin America — OE uses "LTA N" / "LTA S" after 2024 rebrand of LLA
