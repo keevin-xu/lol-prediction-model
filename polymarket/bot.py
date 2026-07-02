@@ -1,5 +1,9 @@
 """
-Discord bot — T1 forward-testing and observation tool.
+Discord bot — T1 observation tool.
+
+T2 is excluded entirely: edge is too thin after costs, and the opening-line
+signal for same-region T2 is not worth the noise. Bot focuses exclusively on
+T1 (LCK, LPL, LCS, LEC, MSI, Worlds).
 
 Two categories of output, always labeled:
   OBSERVATIONAL (trustworthy now):  price tracking, new-market detection, depth logging
@@ -7,7 +11,7 @@ Two categories of output, always labeled:
 
 Alerts fire ONLY on:
   (a) A genuinely new T1 moneyline market opening (one embed, no spam)
-  (b) A watched market resolving
+  (b) A watched T1 market resolving
 
 All other output is pull-based via slash commands.
 
@@ -42,7 +46,6 @@ load_dotenv(_ROOT / ".env")
 from backtest.polymarket_backtest import estimate_fillable_at_open
 from model.blend import get_all_ratings
 from model.predict import predict_match
-from polymarket.discord_cards import build_health_summary, build_settlement_card
 from polymarket.live_engine import (
     MAX_POSITION_PCT,
     SPREAD_COST,
@@ -55,15 +58,7 @@ from polymarket.live_engine import (
     compute_signal,
     detect_new_t1_markets,
     fetch_book_snapshot,
-    run_cycle,
     update_t1_clv,
-)
-from polymarket.paper_trader import (
-    check_resolutions,
-    get_open_positions,
-    get_portfolio_summary,
-    get_trade_history,
-    reset_portfolio,
 )
 from polymarket.price_tracker import check_market_resolutions
 from polymarket.scanner import (
@@ -71,7 +66,6 @@ from polymarket.scanner import (
     load_db_team_names,
     match_team_name,
     parse_teams_from_question,
-    scan,
 )
 
 DB_PATH = _ROOT / "db" / "lol_model.db"
@@ -539,8 +533,6 @@ def _build_status_embed(bot: "T1ObserverBot") -> discord.Embed:
     ).fetchone()[0]
     conn.close()
 
-    summary = get_portfolio_summary()
-
     color = discord.Color.red() if stale else discord.Color.green()
     embed = discord.Embed(title="Bot Status", color=color)
     embed.add_field(name="OE Data", value=oe_val, inline=False)
@@ -551,7 +543,6 @@ def _build_status_embed(bot: "T1ObserverBot") -> discord.Embed:
     embed.add_field(name="Depth Obs", value=str(depth_count), inline=True)
     embed.add_field(name="New Today", value=str(t1_new_today), inline=True)
     embed.add_field(name="T1 Resolved", value=str(t1_resolved), inline=True)
-    embed.add_field(name="T2 Paper W/L", value=f"{summary.wins}W/{summary.losses}L", inline=True)
     embed.add_field(
         name="Mode",
         value=f"T1_SCANNING={'ON' if T1_SCANNING else 'OFF'} | LIVE_TRADING=OFF",
@@ -900,90 +891,21 @@ class T1ObserverBot(discord.Client):
             embed.set_footer(text=f"OE data: {self.oe_date}")
             await interaction.response.send_message(embed=embed)
 
-        @self.tree.command(name="health", description="T2 paper-trading CLV health dashboard")
-        async def cmd_health(interaction: discord.Interaction) -> None:
-            embed = build_health_summary()
-            await interaction.response.send_message(embed=embed)
-
-        @self.tree.command(name="portfolio", description="T2 paper trading portfolio summary")
-        async def cmd_portfolio(interaction: discord.Interaction) -> None:
-            s = get_portfolio_summary()
-            embed = discord.Embed(title="T2 Paper Trading Portfolio", color=discord.Color.blue())
-            embed.add_field(name="Bankroll", value=f"${s.bankroll:,.2f}", inline=True)
-            embed.add_field(name="ROI", value=f"{s.roi:+.1%}", inline=True)
-            embed.add_field(name="Record", value=f"{s.wins}W / {s.losses}L", inline=True)
-            embed.add_field(name="P&L", value=f"${s.total_pnl:+,.2f}", inline=True)
-            embed.add_field(name="Open", value=str(s.open_positions), inline=True)
-            embed.add_field(name="Total Bets", value=str(s.total_bets), inline=True)
-            await interaction.response.send_message(embed=embed)
-
-        @self.tree.command(name="trades", description="Recent T2 paper trades")
-        async def cmd_trades(interaction: discord.Interaction) -> None:
-            open_pos = get_open_positions()
-            history = get_trade_history(limit=10)
-            lines = []
-            if open_pos:
-                lines.append("**Open:**")
-                for t in open_pos:
-                    lines.append(
-                        f"`{t.bet_team}` ${t.amount:.2f} @ {t.entry_price:.0%} (edge {t.edge:.1%})"
-                    )
-            if history:
-                lines.append("\n**Recent settled:**")
-                for t in history:
-                    icon = "+" if t.status == "won" else "-"
-                    lines.append(
-                        f"`{icon}` {t.bet_team} ${t.profit_loss:+.2f} "
-                        f"(entry {t.entry_price:.0%}, model {t.model_prob:.0%})"
-                    )
-            if not lines:
-                lines.append("No T2 paper trades yet.")
-            embed = discord.Embed(
-                title="T2 Paper Trades",
-                description="\n".join(lines),
-                color=discord.Color.purple(),
-            )
-            await interaction.response.send_message(embed=embed)
-
-        @self.tree.command(name="settle", description="Force check for resolved T2 paper markets")
-        async def cmd_settle(interaction: discord.Interaction) -> None:
-            await interaction.response.defer()
-            settled = check_resolutions()
-            if not settled:
-                await interaction.followup.send("No open T2 positions resolved.")
-                return
-            for t in settled:
-                icon = "+" if t.status == "won" else "-"
-                pnl = t.profit_loss or 0
-                await interaction.followup.send(
-                    f"**{icon} Settled:** {t.bet_team} → {t.status.upper()} (${pnl:+.2f})"
-                )
-
-        @self.tree.command(name="scan", description="Force an immediate scan (T2 + T1 detection)")
+        @self.tree.command(name="scan", description="Force an immediate T1 market scan")
         async def cmd_scan(interaction: discord.Interaction) -> None:
             await interaction.response.defer()
             session = _make_session()
-
-            # T2
-            opps = scan(session)
-            # T1 new markets
             t1_new = detect_new_t1_markets(session)
-
-            lines = [f"T2 markets found: **{len(opps)}**", f"T1 new markets: **{len(t1_new)}**"]
+            lines = [f"T1 new markets found: **{len(t1_new)}**"]
             if t1_new:
-                for m in t1_new[:5]:
+                for m in t1_new[:8]:
                     lines.append(
                         f"  • {m['db_team_a']} vs {m['db_team_b']} "
                         f"({m['open_price_a']:.0%}/{m['open_price_b']:.0%})"
                     )
+            else:
+                lines.append("No new T1 markets since last scan.")
             await interaction.followup.send("\n".join(lines))
-
-        @self.tree.command(name="reset", description="Reset T2 paper trading portfolio to $1,000")
-        async def cmd_reset(interaction: discord.Interaction) -> None:
-            count = reset_portfolio()
-            await interaction.response.send_message(
-                f"Portfolio reset. {count} trades deleted. Bankroll back to $1,000.00."
-            )
 
     # -----------------------------------------------------------------------
     # Background loops
@@ -993,44 +915,7 @@ class T1ObserverBot(discord.Client):
         try:
             session = _make_session()
 
-            # T2 paper cycle — silent unless a bet is actually placed
-            try:
-                cycle = run_cycle(session)
-                if cycle["bets_placed"] > 0:
-                    logger.info(f"T2: {cycle['bets_placed']} paper bet(s) placed")
-                    channel = self.get_channel(self.channel_id)
-                    if channel:
-                        conn = sqlite3.connect(DB_PATH, timeout=10)
-                        recent = conn.execute(
-                            """SELECT market_id, bet_team, entry_price, final_size, edge,
-                                      model_prob, open_implied_prob
-                               FROM live_bets WHERE suppressed_reason IS NULL
-                               ORDER BY id DESC LIMIT ?""",
-                            (cycle["bets_placed"],),
-                        ).fetchall()
-                        conn.close()
-                        for row in recent:
-                            _, bt, ep, fs, edg, mp, oip = row
-                            embed = discord.Embed(
-                                title=f"T2 Paper Bet: {bt}",
-                                color=discord.Color.green(),
-                            )
-                            embed.add_field(name="Entry", value=f"{ep:.0%}", inline=True)
-                            embed.add_field(name="Size", value=f"${fs:.2f}", inline=True)
-                            embed.add_field(name="Edge", value=f"{edg:.1%}", inline=True)
-                            embed.add_field(
-                                name="Signal",
-                                value=f"Model {mp:.0%} vs Market {oip:.0%}",
-                                inline=False,
-                            )
-                            stale = _stale_label(self.oe_date)
-                            if stale:
-                                embed.set_footer(text=stale)
-                            await channel.send(embed=embed)
-            except Exception as e:
-                logger.error(f"T2 cycle error: {e}")
-
-            # T1 new market detection — always runs, T1_SCANNING controls sizing only
+            # T1 new market detection — T1_SCANNING controls sizing only
             try:
                 new_t1 = detect_new_t1_markets(session)
                 channel = self.get_channel(self.channel_id)
@@ -1109,54 +994,15 @@ class T1ObserverBot(discord.Client):
 
     @tasks.loop(hours=1)
     async def settle_loop(self) -> None:
-        """Hourly: resolve T2 paper bets, update T1 CLV, post resolution alerts."""
+        """Hourly: update T1 CLV and post resolution alerts."""
         try:
             session = _make_session()
 
-            # T2 market resolution tracking
+            # Keep watchlist market statuses current
             try:
                 check_market_resolutions(session)
             except Exception:
                 pass
-
-            # T2 paper bet settlements
-            try:
-                settled = check_resolutions()
-                if settled:
-                    channel = self.get_channel(self.channel_id)
-                    conn = sqlite3.connect(DB_PATH, timeout=10)
-                    clv_rows = conn.execute(
-                        "SELECT clv FROM clv_log ORDER BY id DESC LIMIT 20"
-                    ).fetchall()
-                    won_total = conn.execute(
-                        "SELECT COUNT(*) FROM live_bets WHERE status = 'won'"
-                    ).fetchone()[0]
-                    lost_total = conn.execute(
-                        "SELECT COUNT(*) FROM live_bets WHERE status = 'lost'"
-                    ).fetchone()[0]
-                    conn.close()
-                    rolling_clv = (
-                        sum(r[0] for r in clv_rows if r[0] is not None) / max(len(clv_rows), 1)
-                        if clv_rows else 0
-                    )
-                    for t in settled:
-                        won = t.status == "won"
-                        pnl = t.profit_loss or 0
-                        card = build_settlement_card(
-                            bet_team=t.bet_team,
-                            won=won,
-                            pnl=pnl,
-                            entry_price=t.entry_price,
-                            prematch_close=t.entry_price,
-                            clv=0.0,
-                            rolling_clv=rolling_clv,
-                            record_w=won_total,
-                            record_l=lost_total,
-                        )
-                        if channel:
-                            await channel.send(embed=card)
-            except Exception as e:
-                logger.error(f"T2 settlement error: {e}")
 
             # T1 CLV update and resolution notifications
             try:
@@ -1234,9 +1080,9 @@ class T1ObserverBot(discord.Client):
             await channel.send(
                 f"**T1 Observer Bot online.**\n"
                 f"{oe_line}\n"
-                f"T1_SCANNING={'ON' if T1_SCANNING else 'OFF'} | LIVE_TRADING=OFF\n"
+                f"T1_SCANNING={'ON' if T1_SCANNING else 'OFF'} | T2=disabled\n"
                 f"Commands: `/status` `/t1dashboard` `/t1watch` `/t1watchlist` "
-                f"`/t1depth` `/predict` `/health` `/portfolio` `/scan`"
+                f"`/t1depth` `/predict` `/leaderboard` `/scan`"
             )
 
     async def setup_hook(self) -> None:
